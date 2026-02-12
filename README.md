@@ -1,6 +1,6 @@
-# SAC MCP Server
+# SAP Analytics Cloud MCP Server
 
-An [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server that exposes the SAP Analytics Cloud REST API as 63 tools consumable by any MCP-compatible client (Claude Desktop, Claude Code, Cursor, etc.).
+An [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server that exposes the SAP Analytics Cloud REST API as 63 tools consumable by any MCP-compatible client (Custom Agent, Claude Desktop, Claude Code, Cursor, Antigravityetc.).
 
 ## What it does
 
@@ -41,7 +41,7 @@ Plus a `ping` connectivity check tool (63 total).
 
 ```bash
 git clone <repository-url>
-cd SAC_MCP
+cd sap_analytics_cloud_mcp
 npm install
 ```
 
@@ -119,7 +119,7 @@ Add the following to your Claude Desktop config file:
   "mcpServers": {
     "sac": {
       "command": "node",
-      "args": ["/absolute/path/to/SAC_MCP/build/index.js"],
+      "args": ["/absolute/path/to/sap_analytics_cloud_mcp/build/index.js"],
       "env": {
         "SAC_BASE_URL": "https://mytenant.eu10.sapanalytics.cloud",
         "SAC_TOKEN_URL": "https://mytenant.authentication.eu10.hana.ondemand.com/oauth/token",
@@ -134,7 +134,7 @@ Add the following to your Claude Desktop config file:
 ### Claude Code
 
 ```bash
-claude mcp add sac -- env SAC_BASE_URL=https://... SAC_TOKEN_URL=https://... SAC_CLIENT_ID=... SAC_CLIENT_SECRET=... node /absolute/path/to/SAC_MCP/build/index.js
+claude mcp add sac -- env SAC_BASE_URL=https://... SAC_TOKEN_URL=https://... SAC_CLIENT_ID=... SAC_CLIENT_SECRET=... node /absolute/path/to/sap_analytics_cloud_mcp/build/index.js
 ```
 
 ### Cursor / other MCP clients
