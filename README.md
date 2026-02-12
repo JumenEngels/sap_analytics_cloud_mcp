@@ -138,18 +138,30 @@ node build\index.js
 
 ### Claude Desktop
 
-Add the following to your Claude Desktop config file:
+### Claude Desktop
 
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+To automatically generate a configuration file with the correct absolute path for your machine:
+
+```bash
+npm run setup
+```
+
+This creates an `mcp_config.json` file in the project root.
+
+1.  Open `mcp_config.json` and fill in your SAC credentials.
+2.  Copy the content to your Claude Desktop config file:
+    - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+    - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+    - **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+Alternatively, you can manually configure it:
 
 ```json
 {
   "mcpServers": {
     "sac": {
       "command": "node",
-      "args": ["/absolute/path/to/sap_analytics_cloud_mcp/build/index.js"],
+      "args": ["/ABSOLUTE/PATH/TO/sap_analytics_cloud_mcp/build/index.js"],
       "env": {
         "SAC_BASE_URL": "https://mytenant.eu10.sapanalytics.cloud",
         "SAC_TOKEN_URL": "https://mytenant.authentication.eu10.hana.ondemand.com/oauth/token",
@@ -170,6 +182,28 @@ claude mcp add sac -- env SAC_BASE_URL=https://... SAC_TOKEN_URL=https://... SAC
 ### Cursor / other MCP clients
 
 Consult the client's documentation for adding a stdio-based MCP server. The command is always `node build/index.js` with the four environment variables set.
+
+## Deployment
+
+### Option A: Standard Node.js (Recommended)
+1.  Clone this repository.
+2.  Run `npm install` (this reads dependencies from `package.json`).
+3.  Run `npm run build` (compiles TypeScript to JavaScript).
+4.  Set the 4 required environment variables.
+5.  Start with `node build/index.js` (typically via an MCP client).
+
+### Option B: Docker
+For a containerized deployment:
+
+```bash
+# Build the image
+docker build -t sac-mcp-server .
+
+# Run (as a test - not an interactive server)
+docker run -e SAC_BASE_URL="https://..." -e SAC_TOKEN_URL="https://..." -e SAC_CLIENT_ID="..." -e SAC_CLIENT_SECRET="..." sac-mcp-server
+```
+
+> **Note**: Since MCP servers communicate via stdio, running in Docker requires binding standard input/output correctly, which can be complex depending on your client. For local use, Option A is preferred.
 
 ## Development
 
