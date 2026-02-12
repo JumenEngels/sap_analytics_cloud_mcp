@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "sac": {
+      "command": "node",
+      "args": ["/Users/admin/SAC_MCP/build/index.js"],
+      "env": {
+        "SAC_BASE_URL": "https://YOUR_TENANT.YOUR_DC.sapanalytics.cloud",
+        "SAC_TOKEN_URL": "PASTE_TOKEN_URL_FROM_SAC_ADMIN_APP_INTEGRATION",
+        "SAC_CLIENT_ID": "YOUR_OAUTH_CLIENT_ID",
+        "SAC_CLIENT_SECRET": "YOUR_OAUTH_CLIENT_SECRET"
+      }
+    }
+  }
+}

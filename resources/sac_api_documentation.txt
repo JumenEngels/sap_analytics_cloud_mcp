@@ -1,0 +1,2290 @@
+################################################################################
+#                                                                              #
+#   SAP ANALYTICS CLOUD (SAC) — REST API COMPREHENSIVE DOCUMENTATION           #
+#   For MCP Server Tool Implementation                                         #
+#                                                                              #
+#   Compiled from SAP Help Portal (help.sap.com) official documentation        #
+#   Date: 2026-02-12                                                           #
+#   SAC Version: Q4 2025 (2025.21)                                             #
+#                                                                              #
+################################################################################
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  PART 1:  GETTING STARTED
+    1.1  Base URL
+    1.2  Authentication (OAuth 2.0)
+    1.3  CSRF Token
+
+  PART 2:  CONTENT APIs  (/api/v1/stories, $metadata, Resources, etc.)
+    2.1  api/v1/stories (GET, POST, PATCH, DELETE)
+    2.2  api/v1/$metadata
+    2.3  api/v1/Resources
+    2.4  api/v1/filerepository
+    2.5  api/v1/Repositories
+    2.6  api/v1/widgetquery
+
+  PART 3:  DATA EXPORT SERVICE  (/api/v1/dataexport)
+    3.1  Overview & OAuth Setup
+    3.2  Administration Endpoints (Namespaces, Providers, Subscriptions)
+    3.3  Provider Data Endpoints (FactData, MasterData, etc.)
+    3.4  Unit Conversion Providers
+    3.5  Query Options, Pagination & CSV Export
+    3.6  Error Codes
+
+  PART 4:  DATA IMPORT SERVICE  (/api/v1/dataimport)
+    4.1  Overview & OAuth Setup
+    4.2  Import Job Workflow
+    4.3  Model Endpoints
+    4.4  Public Dimensions
+    4.5  Currency Conversions
+    4.6  Unit Conversions
+    4.7  Job Lifecycle Endpoints (POST data, validate, run, status, delete)
+    4.8  One-Click Import
+    4.9  Job Settings
+    4.10 Error Codes
+
+  PART 5:  MULTI ACTIONS  (/api/v1/multiActions)
+    5.1  Overview
+    5.2  Execute Multi Action
+    5.3  Query Execution Status
+    5.4  Error Codes
+
+  PART 6:  CALENDAR  (/api/v1/calendar)
+    6.1  Overview
+    6.2  GET Event
+    6.3  PATCH Event (Update Status)
+    6.4  POST Event (Copy)
+
+  PART 7:  CONTENT TRANSPORT  (/api/v1/content)
+    7.1  Overview
+    7.2  Export Jobs
+    7.3  Import Jobs
+    7.4  Content Items & Permissions
+
+  PART 8:  USER & TEAM MANAGEMENT  (SCIM APIs)
+    8.1  SCIM v1 (/api/v1/scim)
+    8.2  SCIM v2 (/api/v1/scim2)  — Recommended
+    8.3  SCIM v3 (/api/v1/scim3)
+    8.4  Optional User Parameters
+    8.5  Role Assignment
+
+  PART 9:  SYSTEM MONITORING
+    9.1  Audit Activities
+    9.2  Monitoring
+
+  PART 10: SCHEDULE PUBLICATION  (/api/v1/ps)
+    10.1 Endpoints Overview
+    10.2 Schedules CRUD
+    10.3 OEM Tokens
+    10.4 Status Queries
+
+  PART 11: TRANSLATION SERVICE  (/api/v1/ts)
+    11.1 Overview
+    11.2 Artifact Metadata
+    11.3 XLIFF Source/Translated
+
+  APPENDIX A: Common HTTP Headers
+  APPENDIX B: Complete Endpoint Index
+
+
+################################################################################
+PART 1: GETTING STARTED
+################################################################################
+
+================================================================================
+1.1 Base URL
+================================================================================
+
+The base URL is different for each SAC customer tenant:
+  https://<TENANT_URL>/api/v1/<endpoint>
+
+Example:
+  https://my-company.eu10.sapanalytics.cloud/api/v1/stories
+
+For BTP-hosted tenants, the URL is found in the BTP cockpit or the SAC
+System > Administration > App Integration page.
+
+Endpoint Summary:
+  /api/v1/stories         Get, copy, rename, delete stories
+  /api/v1/$metadata       OData metadata document for /api/v1
+  /api/v1/Resources       List resources (stories, models, folders)
+  /api/v1/filerepository  File repository (widgets, images, CSS)
+  /api/v1/Repositories    Custom widget repositories
+  /api/v1/widgetquery     Query widget data programmatically
+  /api/v1/dataexport      OData data export (pull access to models)
+  /api/v1/dataimport      Job-based data import
+  /api/v1/multiActions    Trigger automated planning sequences
+  /api/v1/calendar        Planning calendar events
+  /api/v1/content         Content transport between tenants
+  /api/v1/scim            User/team management (SCIM v1)
+  /api/v1/scim2           User/team management (SCIM v2 - recommended)
+  /api/v1/scim3           Group management (SCIM v3)
+  /api/v1/audit           Audit log export
+  /api/v1/monitoring      System health data
+  /api/v1/ps              Scheduled publications
+  /api/v1/ts              Translation service (XLIFF)
+  /api/v1/csrf            Fetch CSRF token
+
+================================================================================
+1.2 Authentication (OAuth 2.0)
+================================================================================
+
+SAC supports four authentication methods:
+
+A) OAuth 2.0 SAML Bearer Assertion (2-legged)
+   Use case: Apps deployed on SAP BTP using the BTP SDK.
+   The SAP BTP provides an OAuth2SAMLBearerAssertion destination feature.
+   Prerequisites:
+     - SAP Analytics Cloud tenant + admin account
+     - SAP BTP account for deploying the application
+     - Java application using SAP BTP SDK
+     - Same IdP configured for both BTP and SAC
+     - Signing certificate from BTP Local Service Provider
+   Tenant Configuration:
+     - Register OAuth Client (Name, Client ID, Authorization Grant,
+       Confidential, Secret)
+     - Save BTP signing certificate as Trusted Identity Provider in SAC
+   Application Configuration:
+     - Deploy app to BTP
+     - Configure OAuth2SAMLBearerAssertion destination:
+       Audience = tenant URL, Token Service = Token URL from SAC Admin,
+       Client Key = OAuth Client ID, Token Service Password = Secret
+
+B) OAuth 2.0 Client Credentials (2-legged)
+   Use case: Server-to-server, no user interaction.
+   Register in SAC: System > Administration > App Integration
+     > +Add New OAuth Client > select "Client Credentials"
+   Flow:
+     1. Construct SAML assertion (or use BTP built-in support)
+     2. POST to Token URL with client_id, client_secret, SAML assertion
+     3. Receive access_token (Bearer)
+
+C) OAuth 2.0 Authorization Code Grant (3-legged)
+   Use case: Non-browser apps acting on behalf of a named user.
+   Register in SAC: System > Administration > App Integration
+     > +Add New OAuth Client > select "Authorization Code"
+   Flow:
+     1. Redirect user to Authorization URL
+     2. User authenticates with IdP
+     3. IdP returns authorization code to Redirect URI
+     4. Exchange code for access token via POST to Token URL
+
+D) Basic Authentication Against the Token Service  [SIMPLEST]
+   Use case: Dev/automation and SCIM provisioning.
+   Register an OAuth client in SAC Admin > App Integration.
+   Flow:
+     1. POST <Token URL>?grant_type=client_credentials
+     2. Header: Authorization: Basic Base64(<ClientID>:<Secret>)
+     3. Response: { "access_token": "...", "token_type": "bearer",
+                    "expires_in": 3600 }
+     4. Use access_token as Bearer token on all subsequent API calls.
+
+   Example:
+     POST <Token URL>?grant_type=client_credentials
+     Headers:
+       Authorization: Basic dXNlcjpwYXNz
+       Content-Type: application/x-www-form-urlencoded
+
+Key URLs (SAC Admin > App Integration > OAuth Clients):
+  - Authorization URL  (for Auth Code flow)
+  - Token URL          (for all flows)
+
+For BTP-hosted tenants:
+  - token_url: https://<subdomain>.authentication.<region>.hana.ondemand.com/oauth/token
+  - grant_type: client_credentials
+  - client_id / client_secret from the BTP service key JSON
+
+Session Management (ALL methods):
+  - Cookie store MUST be maintained across all API calls
+  - x-sap-sac-custom-auth: true required on every request
+  - Write operations require a CSRF token (see 1.3)
+  - CSRF token and session cookies must travel together
+
+Each service (Data Export, Data Import, Calendar, etc.) requires the OAuth
+client to have the specific service selected under "Access" in the OAuth
+client configuration. For example:
+  - Data Export Service → select "Data Export Service" under Access
+  - Data Import Service → select "Data Import Service" under Access
+  - Calendar Service → select "Calendar Events" under Access
+  - File Repository → select "File Repository Read" and "File Repository
+    Handling" under Access
+
+================================================================================
+1.3 CSRF Token
+================================================================================
+
+Required for all write operations: POST, PUT, PATCH, DELETE.
+Read-only GET requests need only the Bearer token.
+
+Procedure:
+  1. Send GET to <tenant-url>/api/v1/csrf (or any GET endpoint)
+  2. Include headers:
+       Authorization: Bearer <access_token>
+       x-csrf-token: Fetch
+       x-sap-sac-custom-auth: true
+  3. Read response headers:
+       x-csrf-token: <tokenValue>
+       Set-Cookie: <session cookies>
+  4. Include both x-csrf-token and cookies in subsequent write requests.
+
+Note: CSRF tokens are session-scoped. Re-fetch if the session expires.
+
+For the Data Export Service, you can also fetch CSRF from any DES GET
+endpoint, e.g.:
+  GET /api/v1/dataexport/administration/Namespaces
+  Header: x-csrf-token: fetch
+
+
+################################################################################
+PART 2: CONTENT APIs
+################################################################################
+
+================================================================================
+2.1 api/v1/stories
+================================================================================
+
+Manage stories on the SAC tenant: get, copy, rename, delete.
+
+Prerequisites:
+  - SAP Analytics Cloud tenant URL and user account
+  - OAuth configured (see 1.2)
+  - CSRF token for POST/PATCH/DELETE (see 1.3)
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /api/v1/stories
+
+  Returns a list of stories and story metadata accessible to the user.
+  Three object types may be returned: stories, models, remote connections.
+
+  Request Headers:
+    Authorization: Bearer <access_token>
+    (Optional) x-csrf-token: <fetch>
+    (Optional) x-sap-sac-custom-auth: true
+
+  URL Parameters:
+    (Optional) include=models
+      Returns model metadata for each story.
+      Example: /api/v1/stories?include=models
+
+  Response: 200 OK
+    Array of story/model/remote connection objects.
+
+  Example Response:
+    [
+      {
+        "id": "8114AB5AE4CA9906E10000000A4E7468",
+        "name": "My Story",
+        "description": "",
+        "created": "2018-03-16T14:43:18.081Z",
+        "createdBy": "admin",
+        "changed": "2018-04-13T06:54:28.412Z",
+        "changedBy": "admin",
+        "models": [
+          { "id": "t.X.Model:Model", "description": "My Model" }
+        ],
+        "openURL": "/sap/fpa/ui/tenants/000/bo/story/<STORY_ID>",
+        "isTemplate": false,
+        "isSample": false
+      }
+    ]
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /api/v1/stories?copyFrom=<SOURCE_STORY_ID>
+
+  Copies the specified story. By default, created in the source folder.
+
+  Request Headers:
+    Authorization: Bearer <access_token>
+    x-csrf-token: <csrf_token>
+    x-sap-sac-custom-auth: true
+
+  URL Parameters:
+    copyFrom (required): Story ID to copy.
+    copyTo (optional): Destination folder.
+      Example: /api/v1/stories?copyFrom=<ID>&copyTo=<FOLDER>
+
+  Request Body (optional):
+    { "name": "<NEW_STORY_NAME>" }
+    If omitted, "Copy" is prepended to original name.
+
+  Response: 201 Created
+    Returns source story ID and copied story ID.
+
+────────────────────────────────────────────────────────────────────────────────
+
+PATCH /api/v1/stories/<STORY_ID>
+
+  Renames the specified story.
+
+  Request Headers:
+    Authorization: Bearer <access_token>
+    x-csrf-token: <csrf_token>
+    x-sap-sac-custom-auth: true
+
+  Request Body (required):
+    { "name": "<NEW_STORY_NAME>" }
+
+  Response: 200 OK
+
+────────────────────────────────────────────────────────────────────────────────
+
+DELETE /api/v1/stories/<STORY_ID>
+
+  Deletes the specified story.
+
+  Request Headers:
+    Authorization: Bearer <access_token>
+    x-csrf-token: <csrf_token>
+    x-sap-sac-custom-auth: true
+
+  Response: 200 OK
+
+────────────────────────────────────────────────────────────────────────────────
+
+Error Responses (Stories API):
+  400  Bad request (typo or invalid property in request)
+  403  User not permitted (authenticated but no SAC user exists)
+  404  Story not found (wrong ID or no access)
+  409  Conflict (PATCH: story name already exists)
+  500  Server error (JSON body with status, code, message)
+
+================================================================================
+2.2 api/v1/$metadata
+================================================================================
+
+GET /api/v1/$metadata
+  Returns the OData EDMX metadata document for the /api/v1 service.
+  Content-Type: application/xml
+  Response: 200 OK
+
+================================================================================
+2.3 api/v1/Resources
+================================================================================
+
+GET /api/v1/Resources
+  Returns a list of all stories and analytical applications on the tenant.
+
+  Request Headers:
+    Authorization: Bearer <access_token>
+    (Optional) x-sap-sac-custom-auth: true
+
+  URL Parameters (OData):
+    $format=json|xml
+    $expand=<Attribute>
+    $orderby=<Attribute> asc|desc
+    $top=<N>
+    $skip=<N>
+    $inlinecount=allpages|none
+    $select=<Field>
+    $filter=<Filter>
+      Operators: and, or, not, eq, ne, startswith, endswith, gt, ge, lt, le
+
+  Example:
+    /api/v1/Resources?$format=json&$orderby=name desc
+
+  Response: 200 OK
+
+GET /api/v1/Resources('<resourceId>')
+  Returns a single resource by ID.
+
+================================================================================
+2.4 api/v1/filerepository
+================================================================================
+
+Prerequisites:
+  - OAuth client Purpose = API Access
+  - Access: File Repository Read, File Repository Handling
+
+GET /api/v1/filerepository/$metadata
+  OData metadata for the file repository service.
+
+GET /api/v1/filerepository/Resources
+  Returns files you have Read access to.
+  Default page size: 50. Uses @odata.nextLink for pagination.
+
+OData Parameters:
+  $select    e.g. $select=resourceId,resourceType
+  $filter    e.g. $filter=resourceType eq 'STORY'
+             Operators: eq, ne, gt, ge, lt, le, in
+  $expand    resourceEffectivePermissions, ancestorFolders, dependencyObjects
+  $count     true/false
+  $top       integer
+  $skip      integer
+  $orderby   e.g. $orderby=modifiedTime desc
+
+Special parameter:
+  applyManagePrivilege=true
+    When used by a user with Manage permission, returns System view results.
+
+Examples:
+  /api/v1/filerepository/Resources?$orderby=modifiedTime desc&$count=true
+  /api/v1/filerepository/Resources?$filter=modifiedTime gt 2024-07-31T12:29:52Z
+  /api/v1/filerepository/Resources?$filter=resourceType eq 'STORY' and resourceSubtype eq ''
+
+Error Responses (File Repository):
+  400  Bad request (nonexistent property)
+  403  Not authorized (user exists in IdP but not in SAC)
+  500  Server error (JSON: status, code, message)
+
+================================================================================
+2.5 api/v1/Repositories
+================================================================================
+
+GET /api/v1/Repositories
+  Returns stories, analytical applications, and folders on the tenant.
+
+  URL Parameters (same OData options as Resources):
+    $format, $expand, $orderby, $top, $skip, $inlinecount, $select, $count
+    $filter (operators: And, Or, Not, Eq, Ne, Co, Sw, Ew)
+
+  Response: 200 OK
+
+================================================================================
+2.6 widgetquery / widgetquery/getWidgetData
+================================================================================
+
+GET /api/v1/widgetquery/getWidgetData
+  Gets widget data from optimized story experience.
+  Only optimized stories and chart widgets are supported.
+
+  URL Parameters (all mandatory):
+    storyId   string   ID of the story
+    widgetId  string   ID of the widget (e.g. "Chart_1")
+    type      string   Must be "kpiTile"
+
+  Example:
+    /widgetquery/getWidgetData?storyId=<ID>&widgetId=Chart_1&type=kpiTile
+
+  Response: 200 OK
+    {
+      "info": "QuarterEnds!",
+      "infoState": "Positive",
+      "number": 56985390.41,
+      "numberDigits": 1,
+      "numberState": "None",
+      "numberUnit": "EUR",
+      "stateArrow": "Up",
+      "subtitle": "in Million EUR",
+      "title": "Gross Margin"
+    }
+
+  KPI Tile Property Mapping:
+    title       → Measure or account of primary value
+    subtitle    → Chart subtitle
+    number      → Primary value
+    numberDigits→ Decimal places
+    numberState → Threshold state (Positive/Critical/Error/Neutral/None)
+    numberUnit  → Currency
+    stateArrow  → Up/Down (variance direction)
+    info        → Variance name and difference
+    infoState   → Positive/Negative/Neutral
+
+  Error Codes:
+    400  PARAM_NOT_VALID          Story/widget ID required
+    400  STORY_TYPE_NOT_SUPPORTED Only optimized stories
+    400  WIDGET_TYPE_NOT_SUPPORTED Only charts
+    401  UNAUTHORIZATION          Missing read permission
+    404  STORY_NOT_FOUND          Story ID not found
+    404  WIDGET_NOT_FOUND         Widget ID not found
+    500  UNEXPECTED               Other errors
+    503  TARGET_SERVER_NOT_REACHABLE Server unreachable
+
+
+################################################################################
+PART 3: DATA EXPORT SERVICE (DES)
+################################################################################
+
+The Data Export Service is a Cloud Data Integration (CDI) OData service.
+It exposes an Administration service (catalog of data providers) and a
+Providers service (data + metadata for each provider).
+
+Base URL: https://<TENANT_URL>/api/v1/dataexport
+
+Terminology:
+  Namespace = an SAP Analytics Cloud system (default: "sac")
+  Provider = a model or currency table on that system
+
+================================================================================
+3.1 Overview & OAuth Setup
+================================================================================
+
+OAuth client must have:
+  - Purpose: API Access
+  - Access: Data Export Service
+
+Grant types supported:
+  - Client Credentials (2-legged) for administrators
+  - Authorization Code (3-legged) for business users
+
+After setup, you have: Token URL, OAuth Client ID, Client Secret.
+
+CSRF Token: Use standard procedure (see 1.3) or fetch from any DES GET
+endpoint with x-csrf-token: fetch header.
+
+================================================================================
+3.2 Administration Endpoints
+================================================================================
+
+All URLs below are relative to: /api/v1/dataexport
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /administration/$metadata
+  Returns OData EDMX schema for the admin service.
+  Content-Type: application/xml (add ?$format=JSON for JSON)
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /administration/Namespaces
+  Lists available namespaces.
+
+  Response:
+    {
+      "value": [
+        { "NamespaceID": "sac", "Description": "SAC Namespace" },
+        { "NamespaceID": "sac_currency_tables", "Description": "SAC Currency Tables" },
+        { "NamespaceID": "sac_public_dimensions", "Description": "SAC Public Dimensions" },
+        { "NamespaceID": "sac_unit_conversion", "Description": "SAC Unit Conversion" }
+      ]
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /administration/Namespaces(NamespaceID='{ID}')
+  Returns a single namespace.
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /administration/Namespaces(NamespaceID='{ID}')/Providers
+  Lists all models (providers) in the namespace.
+
+  Response:
+    {
+      "value": [
+        {
+          "ProviderID": "ProviderA",
+          "ProviderName": "Market_Research",
+          "NamespaceID": "sac",
+          "Description": "Market research from 2021",
+          "ServiceURL": "{BaseURL}/providers/sac/ProviderA/"
+        }
+      ]
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /administration/Subscriptions
+  Creates a new delta-tracking subscription.
+  Requires: CSRF token + Bearer token.
+
+  Request Body:
+    {
+      "NamespaceID": "sac",
+      "ProviderID": "ProviderA",
+      "EntitySetName": "FactData",           // or FactDataDifference, FactDataAggregation
+      "ExternalID": "DeltaData",             // optional
+      "Filter": "DimensionA eq 'MemberA'"    // optional
+    }
+
+  For FactDataAggregation, also include:
+    "Selection": "DimensionA,DimensionB,MeasureC"
+
+  Response:
+    {
+      "NamespaceID": "sac",
+      "ProviderID": "ProviderA",
+      "SubscriptionID": "first-67da2ufa-...",
+      "EntitySetName": "FactData",
+      "ChainID": "sac_ProviderA_FactData_2022-07-20T10:20:50.750Z",
+      "CurrentDeltaLink": ".../FactData?deltaid={SubscriptionID}",
+      ...
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /administration/Subscriptions
+  Lists all active subscriptions.
+
+GET /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='{sID}')
+  Returns a single subscription.
+
+GET /administration/Providers(NamespaceID='{nID}',ProviderID='{pID}')/Subscriptions
+  Lists subscriptions for a specific provider.
+
+────────────────────────────────────────────────────────────────────────────────
+
+DELETE /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='{sID}')
+  Deletes a single subscription. Returns 204.
+
+DELETE /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='')?deleteChain=true
+  Deletes the entire subscription chain. Returns 204.
+
+DELETE /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='')?deleteEntitySetName={name}
+  Deletes all subscriptions for a specific entity set. Returns 204.
+
+DELETE /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='')
+  Deletes all subscriptions for a provider. Returns 204.
+
+All DELETE operations require CSRF token.
+
+================================================================================
+3.3 Provider Data Endpoints
+================================================================================
+
+All URLs below are relative to: /api/v1/dataexport
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /providers/{NamespaceID}/{ProviderID}/$metadata
+  OData metadata for the model. XML by default, ?$format=JSON for JSON.
+
+GET /providers/{NamespaceID}/{ProviderID}
+  Service document listing entity sets (FactData, MasterData, etc.)
+
+  Response:
+    {
+      "value": [
+        { "name": "FactData", "url": "FactData" },
+        { "name": "MasterData", "url": "MasterData" },
+        { "name": "AccountMaster", "url": "AccountMaster" }
+      ]
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /providers/{nID}/{pID}/FactData
+  Returns transactional (fact) data. PRIMARY data extraction endpoint.
+
+GET /providers/{nID}/{pID}/FactDataAggregation
+  Returns aggregated fact data.
+
+GET /providers/{nID}/{pID}/FactDataDifference
+  Returns delta differences in fact data.
+
+GET /providers/{nID}/{pID}/MasterData
+  Returns master data with all dimension navigation attributes.
+
+GET /providers/{nID}/{pID}/AuditData
+  Returns audit trail (who changed what, when).
+
+GET /providers/{nID}/{pID}/{DimensionName}Master
+  Returns master data for a specific dimension.
+  Example: /providers/sac/C4PV2XNOWX/CountryMaster
+
+GET /providers/{nID}/{pID}/{DimensionName}MasterWithHierarchy
+  Returns dimension master data including hierarchy structure.
+
+GET /providers/{nID}/{pID}/CurrencyTable
+  Returns the currency table for the model.
+
+GET /providers/{nID}/{pID}/ConversionRates
+  Returns currency conversion rates.
+
+GET /providers/{nID}/{pID}/PublicDimensionData
+  Returns public/shared dimension data.
+
+────────────────────────────────────────────────────────────────────────────────
+
+Delta Data (requires subscription):
+
+GET /providers/{nID}/{pID}/FactData?deltaid={subscriptionID}
+  Returns changed fact data since last delta read.
+
+GET /providers/{nID}/{pID}/FactData?externalid={externalID}
+  Returns fact data filtered by external ID.
+
+GET /providers/{nID}/{pID}/{limiter}___Distinct
+  Returns distinct values for a dimension.
+
+================================================================================
+3.4 Unit Conversion Providers
+================================================================================
+
+GET /providers/sac_unit_conversion/StandardUnitConversion/ConversionRates
+GET /providers/sac_unit_conversion/T006/ConversionRates
+GET /providers/sac_unit_conversion/T006A/UnitDescriptions
+
+Standard SAP unit conversion data endpoints.
+
+================================================================================
+3.5 Query Options, Pagination & CSV Export
+================================================================================
+
+All /providers/ endpoints support OData v4 query options:
+  $select=<properties>       Select specific columns
+  $filter=<expression>       e.g. $filter=Country eq 'US'
+  $top=<n>                   Limit rows
+  $skip=<n>                  Skip rows
+  $orderby=<prop> asc|desc   Sort
+  $count=true                Include total count
+  $format=json|xml|csv       Response format
+  $expand=<navProp>          Expand navigation properties
+
+SAC-specific:
+  pagesize=<n>               Controls page size (max 30MB compressed response)
+  delimiter=<char>           Custom CSV delimiter (e.g. delimiter=!)
+
+CSV Export:
+  Add $format=text/csv (or $format=csv) to any data endpoint.
+  Response Content-Type: text/csv
+
+Pagination:
+  If data exceeds one page, response includes:
+    "@odata.nextLink": "https://...?$skiptoken=..."
+  Follow nextLink URLs until none are returned.
+
+Delta tracking via headers:
+  Add header 'Prefer': 'odata.track-changes' to GET requests to
+  automatically create a subscription.
+
+================================================================================
+3.6 Error Codes (Data Export)
+================================================================================
+
+  200  Success
+  400  Bad Request (malformed query / invalid parameters)
+  401  Unauthorized (invalid/expired bearer token)
+  403  Forbidden (insufficient permissions / missing CSRF)
+  404  Not Found (namespace, provider, or entity not found)
+  429  Too Many Requests (rate limit)
+  500  Internal Server Error
+
+Common scenarios:
+  "CSRF token validation failed" → re-fetch CSRF token
+  "Provider not found" → verify via /Namespaces('sac')/Providers
+  "Unauthorized" → check token expiry, re-authenticate
+
+
+################################################################################
+PART 4: DATA IMPORT SERVICE (DIS)
+################################################################################
+
+Base URL: https://<TENANT_URL>/api/v1/dataimport
+Only works with New Models (not Classic Account Models).
+
+================================================================================
+4.1 Overview & OAuth Setup
+================================================================================
+
+OAuth client must have:
+  - Purpose: API Access
+  - Access: Data Import Service
+
+CSRF token: Fetch from /api/v1/csrf or any DIS GET endpoint with
+x-csrf-token: fetch and x-sap-sac-custom-auth: true headers.
+
+================================================================================
+4.2 Import Job Workflow (Step-by-Step)
+================================================================================
+
+Step 1: Create a job → POST /models/{modelID} or /models/{modelID}/{importType}
+Step 2: Upload data  → POST /jobs/{jobID}  (can call multiple times)
+Step 3: Validate     → POST /jobs/{jobID}/validate
+Step 4: Run          → POST /jobs/{jobID}/run
+Step 5: Check status → GET  /jobs/{jobID}/status
+
+Alternative: One-click import → POST /import/{modelID} (all steps at once)
+
+All POST operations require CSRF token + Bearer token.
+
+================================================================================
+4.3 Model Endpoints
+================================================================================
+
+GET /models
+  Lists importable models with ID, name, description, URL.
+
+  Response:
+    { "models": [
+      { "modelID": "modelA", "modelName": "Market_Research",
+        "description": "...", "modelURL": "{BaseURL}/models/modelA" }
+    ]}
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /models/{modelID}
+  Returns supported import types, URLs, available job settings, versions.
+
+  Response:
+    {
+      "importTypeUrls": {
+        "factData": "{BaseURL}/models/modelA/factData",
+        "masterData": "{BaseURL}/models/modelA/masterData",
+        "masterFactData": "{BaseURL}/models/modelA/masterFactData",
+        "privateFactData": "{BaseURL}/models/modelA/privateFactData"
+      },
+      "versions": [
+        { "id": "public.Actual", "description": "Actual" },
+        { "id": "private.businessUser.privateVersion", "description": "..." }
+      ],
+      "importTypes": [ { "importType": "factData", "availableJobSettings": {...} } ],
+      "metadataURL": "{BaseURL}/models/modelA/metadata"
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /models/{modelID}/metadata
+  Returns column metadata (names, data types, keys) grouped by import type.
+
+  Response:
+    {
+      "factData": {
+        "keys": ["Version", "Date", "Customer", "Sales"],
+        "columns": [
+          { "columnName": "Version", "columnDataType": "string",
+            "maxLength": 300, "isKey": true },
+          ...
+        ]
+      }
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /models/{modelID}
+  Creates an import job with auto-detected import type (based on Mapping).
+  Supports JSON and CSV (Content-Type: text/csv).
+
+  Request Body (JSON):
+    {
+      "Mapping": { "Bicycle": "Bike", "Shop": "Store" },
+      "JobSettings": {
+        "importMethod": "CleanAndReplace",
+        "dimensionScope": ["Version", "Bicycle"]
+      }
+    }
+
+  Import Methods: Update (default), CleanAndReplace, Append
+
+  Response: 201 Created
+    { "JobID": "{jobID}", "JobURL": "{BaseURL}/jobs/{jobID}" }
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /models/{modelID}/{importType}
+  Creates job with explicit import type: factData, masterData,
+  masterFactData, privateFactData.
+
+  Same Mapping and JobSettings support as above.
+  Response: 201 Created → { "JobID": "...", "JobURL": "..." }
+
+================================================================================
+4.4 Public Dimensions
+================================================================================
+
+GET /publicDimensions
+  Lists all public dimensions.
+
+GET /publicDimensions/{publicDimensionID}
+  Returns import types, URLs, and job settings for a dimension.
+
+GET /publicDimensions/{publicDimensionID}/metadata
+  Returns column metadata (keys, columns, data types).
+
+POST /publicDimensions/{publicDimensionID}/{importType}
+  Creates an import job. importType = "publicDimensionData"
+  Requires: CSRF token.
+  Response: 201 → { "jobID": "...", "jobURL": "..." }
+
+================================================================================
+4.5 Currency Conversions
+================================================================================
+
+GET /currencyConversions
+  Lists currency conversion tables.
+
+GET /currencyConversions/{currencyConversionID}
+  Returns import types and metadata URL.
+
+GET /currencyConversions/{currencyConversionID}/metadata
+  Column metadata for the currency table.
+
+POST /currencyConversions/{currencyConversionID}
+  Creates an import job (auto-detected type).
+  Import methods: DeleteAndUpsert (default), DropAndInsert.
+  JobSettings is NOT supported for currency conversions.
+
+POST /currencyConversions/{currencyConversionID}/{importType}
+  Creates job with explicit import type.
+
+================================================================================
+4.6 Unit Conversions
+================================================================================
+
+GET /unitConversions
+  Lists unit conversion tables (T006, T006A).
+
+GET /unitConversions/{unitConversionID}
+  Returns import types and metadata URL.
+
+GET /unitConversions/{unitConversionID}/metadata
+  Column metadata.
+
+POST /unitConversions/{unitConversionID}/{importType}
+  Creates import job for unit conversion table.
+
+================================================================================
+4.7 Job Lifecycle Endpoints
+================================================================================
+
+GET /jobs
+  Lists all jobs with their status.
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /jobs/{jobID}
+  Uploads data to the import job staging area.
+  Can be called multiple times to append data in chunks.
+  Supports JSON and CSV (Content-Type: text/csv).
+
+  JSON Body:
+    {
+      "Mapping": { "Bicycle": "Bike" },
+      "DefaultValues": { "Shop": "SHP_01" },
+      "Data": [
+        { "Version": "public.Budget", "Date": "202301",
+          "Bike": "TX100", "Quantity": 200 }
+      ]
+    }
+
+  CSV Body:
+    Version,Date,Bicycle,Shop,QuantitySold,TotalEarnings
+    public.Actual,202303,TX100,SHP_01,100,1234.56
+
+  Additional URL parameter:
+    delimiter=<char>  Custom CSV delimiter
+
+  For currency/unit conversion jobs, "DeletedData" is also supported:
+    {
+      "Data": [...],
+      "DeletedData": [{ "fromCurr": "CAD", ... }]
+    }
+
+  Default value: "public.Actual" is auto-inserted for Version if omitted.
+
+  Response: 201 Created
+    {
+      "totalNumberRowsInCurrentRequest": 2,
+      "upsertedNumberRows": 1,
+      "failedNumberRows": 1,
+      "failedRows": [{ "row": {...}, "reason": "..." }],
+      "validateJobURL": "{BaseURL}/jobs/{jobID}/validate",
+      "runJobURL": "{BaseURL}/jobs/{jobID}/run",
+      "totalNumberRowsInJob": "1"
+    }
+
+  Note: Only valid rows are persisted. Invalid rows are rejected immediately.
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /jobs/{jobID}/validate
+  Validates the job. Returns invalid rows and CleanAndReplace preview.
+
+  Response: 201 Created
+    {
+      "jobStatus": "READY_FOR_WRITE",
+      "totalNumberRowsInJob": 1000,
+      "failedNumberRows": 0,
+      "invalidRowsURL": "{BaseURL}/jobs/{jobID}/invalidRows",
+      "jobStatusURL": "{BaseURL}/jobs/{jobID}/status",
+      "additionalInformation": {
+        "cleanAndReplaceAffectedRows": [...]   // only for CleanAndReplace
+      }
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+POST /jobs/{jobID}/run
+  Executes the import.
+  Long-running jobs return PROCESSING; poll /status for completion.
+
+  Response: 201 Created
+    {
+      "jobStatus": "PROCESSING",
+      "totalNumberRowsInJob": 1000,
+      "failedNumberRows": 0,
+      "invalidRowsURL": "...",
+      "jobStatusURL": "..."
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /jobs/{jobID}/status
+  Returns job status: READY_FOR_DATA, READY_FOR_WRITE, PROCESSING,
+  COMPLETED, FAILED.
+
+  Response:
+    {
+      "jobStatus": "COMPLETED",
+      "jobStatusDescription": "Job ... has been executed successfully",
+      "importType": "factData",
+      "jobPropertiesURL": "{BaseURL}/jobs/{jobID}",
+      "additionalInformation": {
+        "totalNumberRowsInJob": "1000",
+        "failedNumberRows": "0"
+      }
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+GET /jobs/{jobID}/invalidRows
+  Lists rejected rows with rejection reasons.
+
+  Response:
+    {
+      "failedRows": [{
+        "Version": "...", "Date": "A02301", ...,
+        "_REJECTION_REASON": "Invalid column value for: Date"
+      }]
+    }
+
+────────────────────────────────────────────────────────────────────────────────
+
+DELETE /jobs/{jobID}
+  Deletes a job and associated data.
+  Response: 204 No Content
+
+================================================================================
+4.8 One-Click Import
+================================================================================
+
+POST /import/{modelID}
+  Creates job, uploads data, validates, and runs — all in one request.
+  Supports JSON and CSV.
+
+  Response: 201 Created
+    {
+      "jobStatus": "COMPLETED",
+      "jobID": "bba3bbae-9e6e",
+      "jobStatusURL": "{BaseURL}/jobs/{jobID}/status",
+      "additionalInformation": {
+        "totalNumberRowsInJob": "5000",
+        "failedNumberRows": "0"
+      }
+    }
+
+POST /import/{modelID}/{importType}
+  One-click import with explicit import type.
+
+================================================================================
+4.9 Job Settings
+================================================================================
+
+importMethod:
+  "Update"           Default. Upserts matching rows.
+  "CleanAndReplace"  Deletes matching scope rows, then inserts.
+  "Append"           Always inserts (no deduplication).
+  "DeleteAndUpsert"  Currency conversions: delete then upsert.
+  "DropAndInsert"    Currency conversions: drop table, then insert.
+
+dimensionScope:
+  Array of dimension names to scope CleanAndReplace.
+
+executeWithFailedRows:
+  true/false. Whether to proceed even with some invalid rows.
+
+ignoreAdditionalColumns:
+  true/false. Whether to ignore columns not in model.
+
+pivotOptions:
+  { "pivotColumnStart": N, "pivotKeyName": "", "pivotValueName": "" }
+
+================================================================================
+4.10 Error Codes (Data Import)
+================================================================================
+
+HTTP-level:
+  400  Bad Request
+  401  Unauthorized
+  403  Forbidden
+  404  Not Found
+  500  Unexpected Error
+
+Application-level error codes:
+  1001  Request job action not supported (wrong execution flow)
+  1002  Max active jobs reached (delete or run existing jobs)
+  1003  Preconditions failed (check job state)
+  1004  Incorrect target fields (not in model metadata)
+  1005  Unable to infer import type (specify in URL)
+  1006  Body incorrect or missing
+  1007  Max jobs per model reached
+  1008  Unable to serialize mapping
+  1009  Empty source/target column in mapping
+  1010  Request already in progress (wait for current job)
+  1011  No valid records in temp storage
+  1012  User not allowed to interact with job
+  1033  Every row invalid (use /invalidRows to see reasons)
+  1101  Feature not active on tenant
+  1200  Unsupported content type
+  1201  Request body too large
+  1202  Body data incorrect/missing
+  1203  Mapping incorrect
+  1205  Failed to insert to temp store
+  1301  Invalid import type
+  1302  Unable to create temp data store
+  1401  Failed to validate table
+  1402  Failed to create table
+  1603  Job ID not found
+  1604  Job cannot be retrieved
+  1605  Job cannot be persisted
+  1701  Model cannot be retrieved (check access)
+  1702  Models cannot be retrieved
+  1703  Model metadata cannot be retrieved
+  1704  Model does not exist
+  1706  Invalid URL parameter
+  1802  Model restricted for import (check model access/privacy settings)
+
+
+################################################################################
+PART 5: MULTI ACTIONS
+################################################################################
+
+Base URL: https://<TENANT_URL>/api/v1/multiActions
+
+Multi Actions trigger automated planning sequences (data actions,
+allocations, version management, etc.).
+
+================================================================================
+5.1 Overview
+================================================================================
+
+Prerequisites:
+  - OAuth: Authorization Code Grant (3-legged, Purpose: Interactive Usage)
+    or SAML Bearer Assertion (2-legged with trusted IdP)
+  - CSRF token required for POST
+
+Endpoints:
+  POST /multiActions/<multiActionID>/executions          Initiate
+  GET  /multiActions/<multiActionID>/executions/<execID> Query status
+
+The <multiActionID> format is: <packageId>:<objectId>
+  Example: t.TEST:CEEFOKMRUKJBY5BN47F1NS2L8G
+
+================================================================================
+5.2 Execute Multi Action
+================================================================================
+
+POST /api/v1/multiActions/<multiActionID>/executions
+
+  Headers:
+    Authorization: Bearer <access_token>
+    x-csrf-token: <csrf_token>
+    Content-Type: application/json
+
+  Request Body:
+    {
+      "parameterValues": [
+        {
+          "parameterId": "TargetVersion",
+          "value": { "memberIds": ["public.Plan"], "hierarchyId": null }
+        },
+        {
+          "parameterId": "time",
+          "value": {
+            "memberIds": [["(all)","2021","H1","20211","202101"]],
+            "hierarchyId": "YHQM"
+          }
+        },
+        {
+          "parameterId": "numberParameter",
+          "value": 42
+        }
+      ]
+    }
+
+  If no parameters: { "parameterValues": [] }
+
+  Response: 202 Accepted
+    {
+      "executionId": "36E0030483176958796298412062C9F0",
+      "links": [{ "href": ".../<multiActionID>/executions/<execID>",
+                   "rel": "STATUS" }]
+    }
+
+================================================================================
+5.3 Query Execution Status
+================================================================================
+
+GET /api/v1/multiActions/<multiActionID>/executions/<executionID>
+
+  Response: 200 OK
+    {
+      "executionId": "...",
+      "status": "successful" | "failed" | "warning" | "running",
+      "utcStartDate": "2023-07-12T10:08:28.000Z",
+      "executionResult": {
+        "messages": [
+          {
+            "code": "501000515",
+            "severity": "error",
+            "message": "Member does not exist...",
+            "details": [
+              { "parameterId": "...", "stepName": "...",
+                "logs": [{ "message": "...", "severity": "error" }] }
+            ]
+          }
+        ]
+      }
+    }
+
+================================================================================
+5.4 Error Codes (Multi Actions)
+================================================================================
+
+HTTP:
+  202  Accepted (execution started)
+  400  Bad request (invalid body)
+  401  Unauthorized
+  403  Forbidden (not authorized to execute)
+  404  Not found (multi action or execution not found)
+  500  Server error
+
+Error code format: "sccxxxyyy" (9 digits)
+  s=severity (1=Info, 3=Warning, 5=Error)
+  cc=category (01=parameter, 02=step, 03=definition, 80=execution,
+               97=technical, 98=auth, 99=format)
+  xxx=task type (000=none, 001=DataAction, 002=DataImport,
+                 003=SmartPredict, 004=VersionManagement, 005=APIStep)
+  yyy=message number
+
+
+################################################################################
+PART 6: CALENDAR
+################################################################################
+
+Base URL: https://<TENANT_URL>/api/v1/calendar
+
+Manage planning calendar events: read, copy, update status.
+
+Prerequisites:
+  - OAuth: Client Credentials, SAML Bearer, or Authorization Code
+  - Access: Calendar Events
+  - CSRF token for POST/PATCH
+  - Events must have "Allow External API Access" enabled
+
+================================================================================
+6.2 GET Event
+================================================================================
+
+GET /api/v1/calendar/events/{eventId}
+
+  Response: 200 OK
+    {
+      "event": {
+        "id": "exampleEventId",
+        "name": "exampleEventName",
+        "description": "exampleEventDescription",
+        "utcStartDate": "<ISO 8601>",
+        "utcEndDate": "<ISO 8601>",
+        "status": "inProgress",
+        "progress": 50
+      }
+    }
+
+  Errors: 400, 401, 404, 429, 500
+
+================================================================================
+6.3 PATCH Event (Update Status)
+================================================================================
+
+PATCH /api/v1/calendar/events/{eventId}
+
+  Request Body:
+    {
+      "status": "open" | "onHold" | "canceled",
+      "notify": true | false
+    }
+
+  Status Transitions:
+    "open"     → from Inactive/Canceled/Successful/PartiallySuccessful/
+                      Failed/OnHold → Open or In Progress
+    "canceled" → from Open/InProgress/OnHold → Canceled
+    "onHold"   → from Open/InProgress/OnHold → On Hold
+
+  Response: 200 OK
+    {
+      "event": { "id": "...", "status": "open" },
+      "links": [{ "rel": "event", "href": "/api/v1/events/<eventID>" }]
+    }
+
+  Errors: 400, 401, 404, 429, 500
+
+================================================================================
+6.4 POST Event (Copy)
+================================================================================
+
+POST /api/v1/calendar/events
+
+  Copies a calendar event. Start date set to current date.
+  All users, files, and child events are copied.
+
+  Request Body:
+    {
+      "referenceEventId": "exampleEventId",
+      "autoActivate": true,
+      "notify": false
+    }
+
+  Response: 201 Created
+    {
+      "event": {
+        "id": "idOfEventCopy",
+        "utcStartDate": "<ISO 8601>",
+        "utcEndDate": "<ISO 8601>"
+      },
+      "links": [{ "rel": "event", "href": "/api/v1/events/<eventID>" }]
+    }
+
+  Errors: 400, 401, 404, 429, 500
+
+
+################################################################################
+PART 7: CONTENT TRANSPORT
+################################################################################
+
+Base URL: https://<TENANT_URL>/api/v1/content
+
+Import/export SAC artefacts (stories, models) between tenants.
+
+All Content Transport endpoints require:
+  - Authorization: Bearer <access_token>
+  - x-sap-sac-custom-auth: true
+  - X-CSRF-Token (for POST/PUT/DELETE)
+
+================================================================================
+7.1 Create an Export Job
+================================================================================
+
+POST /api/v1/content/jobs
+
+  Request Body:
+    {
+      "type": "EXPORT",
+      "serviceParameters": {
+        "fields": [
+          { "fieldType": "name", "fieldI18n": [{ "langCode": "en", "value": "Package Name" }] },
+          { "fieldType": "description", "fieldI18n": [{ "langCode": "en", "value": "Desc" }] },
+          { "fieldType": "summary", "fieldI18n": [{ "langCode": "en", "value": "Summary" }] }
+        ],
+        "isPrivate": true,
+        "privateItemsData": {
+          "itemId": "<optional, for updating existing>",
+          "parentItemId": "<parent_folder_ID>"
+        },
+        "permissions": [
+          {
+            "tenantUrl": "<url>", "landscapeId": "<id>",
+            "list": true, "read": true, "write": false, "delete": false
+          }
+        ],
+        "overwritePermissions": false,
+        "taggingData": [{ "tagId": "SF_FO" }]
+      },
+      "packageVersion": "1.0.0",
+      "originLandscape": "<conditional: for cross-landscape>",
+      "objects": [
+        {
+          "xsParameters": {},
+          "serviceParameters": "{\"includeData\":true}",
+          "objectId": "<id>",
+          "objectName": "<name>",
+          "objectType": "<type>",
+          "description": "<desc>"
+        }
+      ]
+    }
+
+  Response: 201 Created — returns Job ID
+
+  Permission targets (one of):
+    - tenantUrl + landscapeId
+    - oemId
+    - erpNumber
+
+================================================================================
+7.2 Get Job Status
+================================================================================
+
+GET /api/v1/content/jobs/<JobID>
+
+  Response: 200 OK — job status and details
+
+================================================================================
+7.3 Download / Upload Package
+================================================================================
+
+GET /api/v1/content/jobs/<JobID>/downloadPackage
+  Downloads exported package.
+  Optional query: ?packageVersion=<version>  (defaults to highest)
+
+POST /api/v1/content/jobs/<JobID>/uploadPackage
+  Uploads a package for import. Content-Type: application/octet-stream
+
+================================================================================
+7.4 Content Item Management
+================================================================================
+
+DELETE /api/v1/content/<itemID>
+  Deletes all versions of the package.
+
+GET /api/v1/content/<itemID>/package/<packageVersion>
+  Returns specific package version metadata.
+
+DELETE /api/v1/content/<itemID>/package/<packageVersion>
+  Deletes a specific version only.
+
+PUT /api/v1/content/<itemID>/<targetID>
+  Moves a private item to a new parent target.
+
+GET /api/v1/content/<itemID>/<waveItemID>
+  Returns item details.
+
+GET /api/v1/content/permissions/<itemID>
+  Returns permissions for a private content item.
+
+================================================================================
+7.5 Public Content Network
+================================================================================
+
+GET /api/v1/content/public/<itemID>/<waveItemID>
+  Get public item details.
+
+GET /api/v1/content/public/<parentItemID>
+  List all public items in folder.
+  Query params:
+    permissions=list|read|write|delete  (multiple via &)
+    itemType=PACKAGE|SUB-CATEGORY|ALL   (default: ALL)
+    tags=<tagId>                         (multiple via &)
+
+GET /api/v1/content/public/permissions/<itemID>
+  Returns permissions on a public item.
+
+================================================================================
+7.6 Predefined Content Network Package Tags
+================================================================================
+
+  SF_FO   Application Foundation      SF_EC   Employee Central
+  SF_CAL  Talent - Calibration        SF_REC  Recruiting
+  SF_CDP  Career Development          SF_LMS  Learning
+  SF_CPM  Continuous Performance      SF_ONB  Onboarding
+  SF_MTR  Multi Rater                 SF_COM  Compensation
+  SF_PMU  Performance Management      SF_SPA  Spot Awards
+  SF_SCM  Succession Management       SF_PLA  Platform
+  SF_GM   Goal Management             SF_TIM  Time
+  SF_UM   User Management             SF_BEN  Benefits
+  SF_ADV  Advances   SF_ITD  IT Declarations   SF_QAS  Quality Services
+  SF_IG   Initiative Group   SF_PAY  Payroll   SF_WRK  Workflow
+
+================================================================================
+7.7 Status Codes (Content Transport)
+================================================================================
+
+  200  Success
+  201  Success (Create Job)
+  202  Success (Delete Item)
+  400  Bad Request
+  401  Unauthorized
+  403  Forbidden
+  404  Not Found
+  500  Unexpected Error
+
+
+################################################################################
+PART 8: USER & TEAM MANAGEMENT (SCIM APIs)
+################################################################################
+
+All SCIM endpoints require:
+  - Authorization: Bearer <access_token>
+  - x-sap-sac-custom-auth: true
+  - X-CSRF-Token (for POST/PUT/PATCH/DELETE)
+
+SCIM Schemas:
+  Core:       urn:ietf:params:scim:schemas:core:2.0:User
+  Enterprise: urn:ietf:params:scim:schemas:extension:enterprise:2.0:User
+  SAC Custom: urn:ietf:params:scim:schemas:extension:sap:user-custom-parameters:1.0
+  SAC v2:     urn:sap:params:scim:schemas:extension:sac:2.0:user-custom-parameters
+  Group Core: urn:ietf:params:scim:schemas:core:2.0:Group
+  SAC Group:  urn:sap:params:scim:schemas:extension:sac:2.0:group-custom-parameters
+  SAC v3:     urn:ietf:params:scim:schemas:extension:sap:2.0:Group
+
+Filter Operators (all versions): And, Or, Not, Eq, Ne, Co, Sw, Ew
+Filter Attributes (v1): username, email
+Filter Attributes (v2/v3): all user schema attributes
+
+================================================================================
+8.1 SCIM v1 (/api/v1/scim)
+================================================================================
+
+--- Users ---
+
+GET /api/v1/scim/Users
+  List users. Optional params: startIndex, count, filter
+  Example: /api/v1/scim/Users?filter=username eq "abcUser"
+  Response: 200
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+      "totalResults": 123, "itemsPerPage": 10, "startIndex": 1,
+      "Resources": [<User objects>]
+    }
+
+POST /api/v1/scim/Users
+  Create user. Response: 201
+    Request Body:
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "userName": "user@email.com",
+      "name": { "givenName": "First", "familyName": "Last" },
+      "displayName": "First Last",
+      "emails": [{ "value": "user@email.com", "type": "work", "primary": true }],
+      "roles": [],
+      "groups": [],
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "manager": { "managerId": "" }
+      }
+    }
+  Errors: 400 (max licenses), 403, 409 (username conflict)
+
+GET    /api/v1/scim/Users/<ID>      Get user by ID. Errors: 200, 403, 404
+PUT    /api/v1/scim/Users/<ID>      Full replace. Errors: 200, 400, 403, 404
+DELETE /api/v1/scim/Users/<ID>      Delete (files → System Owner). Response: 204
+
+POST /api/v1/scim/Users/.search
+  Search users.
+    Body:
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:SearchRequest"],
+      "filter": "username sw \"smith\"",
+      "startIndex": 1,
+      "count": 10
+    }
+
+--- Groups/Teams ---
+
+GET /api/v1/scim/Groups
+  List teams. Params: startIndex, count
+
+POST /api/v1/scim/Groups
+  Create team. Optional header: x-sap-sac-create-team-folder: true
+    Body:
+    {
+      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+      "id": "<Team_ID>",
+      "displayName": "Team Name",
+      "members": [{ "value": "<User_Name>" }]
+    }
+  Errors: 201, 400, 403, 409 (group name conflict)
+
+GET    /api/v1/scim/Groups/<Team_ID>    Get team (includes admins, moderators)
+PUT    /api/v1/scim/Groups/<Team_ID>    Full replace
+DELETE /api/v1/scim/Groups/<Team_ID>    Delete team. Response: 204
+
+================================================================================
+8.2 SCIM v2 (/api/v1/scim2) — RECOMMENDED
+================================================================================
+
+SCIM 2.0 compliant (RFC 7643, 7644). User IDs are UUIDs.
+Additional params: sortBy, sortOrder (ascending/descending)
+
+--- Users ---
+
+GET /api/v1/scim2/Users
+  List users. Supports full filter, sortBy, sortOrder, startIndex, count.
+  Example: ?filter=emails.value co "a"&sortOrder=descending&startIndex=3&count=2
+  Errors: 200, 400, 403, 500
+
+POST /api/v1/scim2/Users
+  Create user. Uses SAC v2 custom parameters extension.
+  Errors: 201, 400 (max licenses), 401, 403, 409, 500
+
+GET    /api/v1/scim2/Users/<UUID>    Get user. Errors: 200, 403, 404, 500
+PUT    /api/v1/scim2/Users/<UUID>    Full replace. Errors: 200, 400, 403, 404, 500
+DELETE /api/v1/scim2/Users/<UUID>    Delete user. Errors: 200, 403, 404, 500
+
+PATCH /api/v1/scim2/Users/<UUID>
+  Partial update (add/replace/remove).
+  Example (add role):
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+      "Operations": [{
+        "op": "add",
+        "path": "roles",
+        "value": [{ "value": "PROFILE:sap.epm:BI_Content_Viewer",
+                     "display": "BI_Content_Viewer", "primary": true }]
+      }]
+    }
+  Errors: 200, 400, 403, 404, 500
+
+POST /api/v1/scim2/Users/.search
+  Search users.
+    Body:
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:SearchRequest"],
+      "attributes": ["displayName", "userName"],
+      "filter": "displayName sw \"h\"",
+      "sortBy": "emails.value",
+      "sortOrder": "ascending",
+      "startIndex": 1,
+      "count": 10
+    }
+
+--- Groups/Teams ---
+
+GET /api/v1/scim2/Groups
+  List groups. Same filter/sort params as Users.
+  Example: ?filter=displayName sw "t"&count=1
+
+POST /api/v1/scim2/Groups
+  Create team. Optional header: x-sap-sac-create-team-folder: true
+    Body:
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:sap:params:scim:schemas:extension:sac:2.0:group-custom-parameters"
+      ],
+      "displayName": "TeamName",
+      "members": [{ "value": "<UUID>" }],
+      "urn:sap:params:scim:schemas:extension:sac:2.0:group-custom-parameters": {
+        "description": "Team description"
+      }
+    }
+  Errors: 201, 400, 403, 409, 500
+
+GET    /api/v1/scim2/Groups/<UUID>    Get group
+PUT    /api/v1/scim2/Groups/<UUID>    Full replace
+DELETE /api/v1/scim2/Groups/<UUID>    Delete. Response: 204
+
+PATCH /api/v1/scim2/Groups/<UUID>
+  Example (add roles to team):
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+      "Operations": [{
+        "op": "add",
+        "path": "urn:sap:params:scim:schemas:extension:sac:2.0:group-roles",
+        "value": { "roles": [
+          { "value": "PROFILE:sap.epm:BI_Content_Creator", "display": "BI_Content_Creator" },
+          { "value": "PROFILE:sap.epm:Admin", "display": "Admin" }
+        ]}
+      }]
+    }
+  Example (remove members):
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+      "Operations": [{
+        "op": "remove",
+        "path": "members[value eq \"<UUID1>\" or value eq \"<UUID2>\"]"
+      }]
+    }
+
+POST /api/v1/scim2/Groups/.search
+  Same structure as Users/.search.
+
+--- Bulk Operations ---
+
+POST /api/v1/scim2/Bulk
+  Supports bulk POST, PUT, PATCH, DELETE on Users and Groups.
+  Limits: maxOperations=30, maxPayloadSize=3072000
+
+  Example (bulk delete):
+    {
+      "failOnErrors": 1,
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:BulkRequest"],
+      "Operations": [
+        { "method": "DELETE", "path": "/Users/<UUID>" },
+        { "method": "DELETE", "path": "/Users/<UUID>" }
+      ]
+    }
+  Example (bulk create): Uses "bulkId" and "data" per operation with full schema.
+
+--- System Information ---
+
+GET /api/v1/scim2/ServiceProviderConfig
+  Returns IDP info, supported features (patch/bulk/filter/sort), auth schemes.
+  Notable: bulk.maxOperations=30, filter.maxResults=200
+
+GET /api/v1/scim2/Schemas
+  Returns all user/team management schemas.
+
+GET /api/v1/scim2/ResourceTypes
+GET /api/v1/scim2/ResourceTypes/<Type>   (Type = "User" or "Group")
+
+================================================================================
+8.3 SCIM v3 (/api/v1/scim3) — Groups + Roles
+================================================================================
+
+SCIM v3 introduces role management alongside teams.
+Groups have type: "authorization" (roles) or "userGroup" (teams).
+Members can be of type "User" or "Group" (roles as members of teams).
+
+GET /api/v1/scim3/Groups
+  Filter by type:
+    Roles: ?filter=urn:ietf:params:scim:schemas:extension:sap:2.0:Group:type eq "authorization"
+    Teams: ?filter=urn:ietf:params:scim:schemas:extension:sap:2.0:Group:type eq "UserGroup"
+  Errors: 200, 400, 401, 403, 500
+
+POST /api/v1/scim3/Groups
+  Create team with mixed user and role members:
+    {
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:sap:2.0:Group"
+      ],
+      "displayName": "FINANCETEAM",
+      "members": [
+        { "value": "<role-UUID>", "type": "Group", "display": "FinanceRole" },
+        { "value": "<user-UUID>", "type": "User", "display": "JAMES BAKER" }
+      ],
+      "urn:ietf:params:scim:schemas:extension:sap:2.0:Group": {
+        "supportedOperations": "readWrite",
+        "description": "FINANCE TEAM",
+        "type": "userGroup"
+      }
+    }
+  Errors: 201, 400, 401, 403, 409, 500
+
+GET    /api/v1/scim3/Groups/<UUID>    Errors: 200, 401, 403, 404
+PUT    /api/v1/scim3/Groups/<UUID>    Errors: 200, 400, 401, 403, 404
+DELETE /api/v1/scim3/Groups/<UUID>    (teams only, not roles) Response: 204
+
+PATCH /api/v1/scim3/Groups/<UUID>
+  Example (add member + update description on a role):
+    {
+      "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+      "Operations": [
+        { "op": "add", "path": "members",
+          "value": [{ "value": "<UUID>", "type": "User" }] },
+        { "op": "replace",
+          "path": "urn:ietf:params:scim:schemas:extension:sap:2.0:Group:description",
+          "value": "Updated description" }
+      ]
+    }
+
+POST /api/v1/scim3/Groups/.search
+  Same structure as SCIM v2 search.
+
+================================================================================
+8.4 Optional User Parameters
+================================================================================
+
+Top-level:
+  photos: [{"value": "<URL>", "type": "photo"}]
+  preferredLanguage: ISO 639-1 code (e.g. "en", "en-us"). Default: "en"
+
+Custom parameters (urn:ietf:params:scim:schemas:extension:sap:user-custom-parameters:1.0):
+
+  Parameter                              Allowed Values                   Default
+  ─────────────────────────────────────  ───────────────────────────────  ─────────
+  cleanUpNotificationsNumberOfDays       0, 1, 3, 7, 14                  0
+  dataAccessLanguage                     ISO 639-1 code                   en
+  dateFormatting                         MMM d, yyyy / dd.MM.yyyy /       MMM d, yyyy
+                                         MM/dd/yyyy / etc.
+  isConcurrent                           true / false                     false
+  marketingEmailOptIn                    true / false                     false
+  numberFormatting                       1,234.56 / 1.234,56 / 1 234,56  1,234.56
+  systemNotificationsEmailOptIn          true / false                     true
+  timeFormatting                         H:mm:ss / h:mm:ss a / h:mm:ss A H:mm:ss
+
+================================================================================
+8.5 Standard Application Roles
+================================================================================
+
+Role ID format: PROFILE:sap.epm:<RoleName>
+Custom roles format: PROFILE:<t.#>:<role_name>
+
+Available standard roles:
+  PROFILE:sap.epm:Viewer
+  PROFILE:sap.epm:Modeler
+  PROFILE:sap.epm:Planner_Reporter
+  PROFILE:sap.epm:BI_Admin
+  PROFILE:sap.epm:BI_Content_Creator
+  PROFILE:sap.epm:BI_Content_Viewer
+  PROFILE:sap.epm:Boardroom_Viewer
+  PROFILE:sap.epm:Boardroom_Creator
+  PROFILE:sap.epm:Predictive_Content_Creator
+  PROFILE:sap.epm:HCP_Content_Creator
+  PROFILE:sap.epm:HCP_Content_Viewer
+  PROFILE:sap.epm:Analytics_Hub_Admin
+  PROFILE:sap.epm:Analytics_Hub_Content_Creator
+  PROFILE:sap.epm:Analytics_Hub_Content_Viewer
+  PROFILE:sap.epm:BI_RESTRICTED_CONTENT_CREATOR
+  PROFILE:sap.epm:BI_RESTRICTED_CONTENT_VIEWER
+  PROFILE:sap.epm:BI_RESTRICTED_TENANT_ADMIN
+  PROFILE:sap.epm:Admin
+
+
+################################################################################
+PART 9: SYSTEM MONITORING
+################################################################################
+
+================================================================================
+9.1 Audit Activities
+================================================================================
+
+GET /api/v1/audit/activities/exportActivities
+
+  Exports audit log activities as a CSV file.
+
+  Query Parameters:
+    csvName=<filename>            Default: activities.csv
+    pageSize=<1..100000>          Default: 100,000
+    pageIndex=<n>                 Starts at 1
+    sortKey=type|fileName|description|userName|status|activity|timestamp
+                                  Default: timestamp
+    sortDescending=TRUE|FALSE
+
+  Response: 200 OK with CSV file content.
+
+================================================================================
+9.2 Monitoring
+================================================================================
+
+GET /api/v1/monitoring/<Model_ID>
+
+  Returns monitoring data as CSV file.
+
+  Query Parameters:
+    csvName=<filename>            Default: monitoring.csv
+    pageSize=<1..100000>          Default: 100,000
+    pageIndex=<n>                 Starts at 1
+    sortKey=type|fileName|description|userName|status|activity|timestamp
+    sortDescending=TRUE|FALSE
+    from=<ISO8601>                e.g. 2024-10-28T10:09:29.879Z
+    till=<ISO8601>
+
+  Supported Model IDs:
+
+    Model ID                Model Name
+    ──────────────────────  ──────────────────────────────
+    error                   ERROR_LOG
+    license                 LICENSE
+    licenseConcurrent       CONCURRENT_LICENSE
+    resource                RESOURCE
+    resourceRecentAccess    RESOURCE_RECENT_ACCESS
+    user                    SAC_USERS
+    userAdoption            USER_ADOPTION
+    userLive                LIVE_USERS
+    userSession             SESSION
+    backend                 SAC_STATISTICS_MDS_QUERY_PERF
+    client                  SAC_PERFORMANCE_E2E
+    dataManagement          DM_SCHEDULE
+    planningVersion         VERSION_STATISTICS_VIEW
+    planningDataAction      PLANNING_DATA_ACTIONS
+
+  Response: 200 OK with CSV file content.
+
+
+################################################################################
+PART 10: SCHEDULE PUBLICATION
+################################################################################
+
+Base URL: https://<TENANT_URL>/api/v1/ps
+
+Manages scheduled publications (automated story distribution).
+Supports OAuth 2.0 Authorization Code Grant or SAML Bearer Assertion.
+CSRF token required for POST/PATCH/DELETE.
+
+================================================================================
+10.1 Get Schedule Template
+================================================================================
+
+GET /api/v1/ps/schedules/template
+
+  Returns a prefilled payload template with properties and values.
+
+================================================================================
+10.2 Create Schedule
+================================================================================
+
+POST /api/v1/ps/schedules
+
+  Request Body:
+    {
+      "action": "createScheduleAPI",
+      "storyInfo": { "storyId": "<story_id>" },
+      "scheduleMode": "<1=broadcasting, 2=bursting>",
+      "scheduleName": "<name>",
+      "recurrenceType": "<0=single, 1=recurring>",
+      "runOnce": { "startDate": "<ISO_date>" },
+      "recurrence": [{
+        "recurrenceMode": "<2=hourly, 3=daily, 4=weekly, 5=monthly>",
+        "endModeRepetitions": "<count>",
+        "endModeDate": "<ISO_date>",
+        "onMonday": false, "onTuesday": false, "onWednesday": false,
+        "onThursday": false, "onFriday": false, "onSaturday": false,
+        "onSunday": false,
+        "firstRun": "<ISO_date>"
+      }],
+      "addStoryLink": "<true/false>",
+      "fileFormat": "<PDF|PPT>",
+      "emailSubject": "<subject>",
+      "emailMessage": "<body>",
+      "views": [{
+        "bookmarkId": "STORY",
+        "viewName": "<view_name>",
+        "filename": "<file_name>",
+        "fileSettings": { "isGridPage": true, "selectedStoryPages": [] },
+        "destinations": {
+          "email": {
+            "extEmailUsr": ["abc@gmail.com"],
+            "internalEmailUsr": ["<user_or_team_ID>"]
+          }
+        }
+      }],
+      "deliveryRule": 1
+    }
+
+  Limitations:
+    - Single occurrence adds 5-minute delay if runNow=false and no startDate
+    - Only ISO datetime supported
+    - When both endModeRepetitions and endModeDate given, repetitions takes precedence
+    - Page range is not supported
+
+================================================================================
+10.3 Update Schedule
+================================================================================
+
+PATCH /api/v1/ps/schedules/{scheduleId}
+
+  Same payload as POST but with:
+    "action": "updateScheduleAPI"
+    "taskID": "<task_id>"
+  Only changed properties need to be included.
+
+================================================================================
+10.4 Delete Schedule
+================================================================================
+
+DELETE /api/v1/ps/schedules/{scheduleId}
+
+  Request Body:
+    {
+      "action": "deleteSchedules",
+      "data": {
+        "ids": "<schedule_IDs>",
+        "series": {
+          "deleteOnlyFutureOccurrences": "<true/false>",
+          "deleteAllOccurrences": "<true/false>"
+        }
+      }
+    }
+
+================================================================================
+10.5 OEM Tokens
+================================================================================
+
+POST /api/v1/ps/oem/token
+  Extra headers: x-sap-boc-oem-id, x-sap-boc-tenant-id
+  Body: { "taskId": <task_id> }
+
+POST /api/v1/ps/oem/gatewaytoken
+  Extra headers: x-sap-boc-oem-id, x-sap-boc-tenant-id
+  Body: { "taskId": <task_id>, "isBursting": <boolean> }
+
+================================================================================
+10.6 Status Queries
+================================================================================
+
+POST /api/v1/ps/schedules/deliverystatus
+  Extra header: x-sap-boc-tenant-id
+  Body:
+    {
+      "id": "<UUID>",
+      "isBursting": true,
+      "parentId": "<parent_task_id>",
+      "tenant": "<tenant_id>",
+      "isOEM": true,
+      "statusCode": "105",
+      "message": "Artifact uploaded successfully",
+      "type": 1,
+      "deliveryId": "<UUID>",
+      "deliveryParams": { "link": "<artifact_URL>" }
+    }
+
+POST /api/v1/ps/schedules/schedulestatus
+  Extra header: x-sap-boc-tenant-id
+  Body: { "id": "<task_id>", "isOEM": true, "isBursting": false }
+
+
+################################################################################
+PART 11: TRANSLATION SERVICE
+################################################################################
+
+Base URL: https://<TENANT_URL>/api/v1/ts
+
+Manages translation of SAC content using XLIFF 1.2 format.
+
+OAuth client must have:
+  - Purpose: API Access
+  - Access: Translation Service
+  - Grant type: client_credentials (Two-Legged OAuth)
+CSRF token required for POST and PATCH.
+
+Translation status values: TRANSLATED, PARTIALLY_TRANSLATED, NOT_TRANSLATED
+
+================================================================================
+11.1 Get All Artifact Metadata
+================================================================================
+
+GET /api/v1/ts/artifacts/metadata
+
+  Response: 200 OK
+    [
+      {
+        "artifactID": "2DE0D603656CE81AFD5BEA736EC12479",
+        "artifactTitle": "Sample Revenue Analysis",
+        "artifactDescription": "Analysis of Revenue Model",
+        "artifactPath": "PUBLIC/Test",
+        "sourceLanguage": "en",
+        "artifactType": "story",
+        "translationStatus": { "af": "TRANSLATED", "bg": "PARTIALLY_TRANSLATED" },
+        "detailedTranslationStatus": [
+          {
+            "language": "af",
+            "lastModifiedOn": 1726658842853,
+            "lastModifiedUser": "TEST_USER",
+            "translationStatus": "TRANSLATED"
+          }
+        ],
+        "effectiveTranslationStatus": "PARTIALLY_TRANSLATED",
+        "translatedLanguages": "af,bg",
+        "lastModifiedUser": "TEST_USER",
+        "lastModifiedTimestamp": 1726658842853,
+        "createdUser": "Test User",
+        "createdTimestamp": 1726658170267
+      }
+    ]
+
+================================================================================
+11.2 Get Single Artifact Metadata
+================================================================================
+
+GET /api/v1/ts/artifacts/{id}/metadata
+
+  Same response structure as above, for a single artifact.
+
+================================================================================
+11.3 Download Source XLIFF (Single Artifact)
+================================================================================
+
+GET /api/v1/ts/artifacts/{id}/source/xliff
+  Query param: all=true|false
+    true  = returns all strings
+    false = returns only untranslated strings
+
+  Response: XLIFF 1.2 XML with <trans-unit> elements containing
+  translatable <source> strings grouped by artifact metadata.
+
+================================================================================
+11.4 Download Source XLIFF (Multiple Artifacts)
+================================================================================
+
+POST /api/v1/ts/artifacts/source/xliff
+  Query param: all=true|false
+  Body: ["artifactid1", "artifactid2"]
+  Requires: CSRF token.
+
+================================================================================
+11.5 Upload Translated XLIFF
+================================================================================
+
+PATCH /api/v1/ts/artifacts/{id}/translated
+  Content-Type: multipart/form-data
+  Form field: key name = "files", key type = File, value = XLIFF files
+  Requires: CSRF token.
+
+  Response: 200 OK
+    {
+      "id": "5E1882E87B1A6B3B3BFF6105DCBC20A1",
+      "message": "Successfully uploaded XLIFF files",
+      "uploadedFiles": ["Test_de.xlf"],
+      "errors": [],
+      "CallbackDetails": {
+        "responseDesc": "{\"success\":true,...}",
+        "responseCode": 200
+      }
+    }
+
+
+################################################################################
+APPENDIX A: COMMON HTTP HEADERS FOR ALL ENDPOINTS
+################################################################################
+
+Request Headers:
+  Authorization: Bearer <access_token>          Required for ALL requests
+  x-csrf-token: <token>                         Required for POST/PATCH/PUT/DELETE
+  x-csrf-token: Fetch                           Used to request a new CSRF token
+  x-sap-sac-custom-auth: true                   Required on ALL SAC API requests
+  Cookie: <session cookies>                      Required — maintain cookie jar
+  Content-Type: application/json                 For JSON request bodies
+  Content-Type: text/csv                         For CSV uploads (Data Import)
+  Content-Type: application/xliff+xml            For XLIFF (Translation)
+  Content-Type: application/octet-stream         For binary uploads (Content)
+  Accept: application/json                       Request JSON responses
+
+Response Headers:
+  x-csrf-token: <value>                          Returned on Fetch requests
+  Set-Cookie: <cookies>                          Session cookies
+
+
+################################################################################
+APPENDIX B: COMPLETE ENDPOINT INDEX
+################################################################################
+
+CONTENT:
+  GET    /api/v1/stories
+  POST   /api/v1/stories?copyFrom=<ID>[&copyTo=<FOLDER>]
+  PATCH  /api/v1/stories/<STORY_ID>
+  DELETE /api/v1/stories/<STORY_ID>
+  GET    /api/v1/$metadata
+  GET    /api/v1/Resources
+  GET    /api/v1/Resources('<id>')
+  GET    /api/v1/filerepository/$metadata
+  GET    /api/v1/filerepository/Resources
+  GET    /api/v1/filerepository/Resources('<id>')
+  GET    /api/v1/Repositories
+  GET    /api/v1/widgetquery/getWidgetData?storyId=<>&widgetId=<>&type=kpiTile
+
+DATA EXPORT (/api/v1/dataexport):
+  GET    /administration/$metadata
+  GET    /administration/Namespaces
+  GET    /administration/Namespaces(NamespaceID='{ID}')
+  GET    /administration/Namespaces(NamespaceID='{ID}')/Providers
+  POST   /administration/Subscriptions
+  GET    /administration/Subscriptions
+  GET    /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='{sID}')
+  DELETE /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='{sID}')
+  DELETE /administration/Subscriptions(...)?deleteChain=true
+  DELETE /administration/Subscriptions(...)?deleteEntitySetName={name}
+  DELETE /administration/Subscriptions(NamespaceID='{nID}',ProviderID='{pID}',SubscriptionID='')
+  GET    /administration/Providers(NamespaceID='{nID}',ProviderID='{pID}')/Subscriptions
+  GET    /providers/{nID}/{pID}/$metadata
+  GET    /providers/{nID}/{pID}
+  GET    /providers/{nID}/{pID}/FactData
+  GET    /providers/{nID}/{pID}/FactDataAggregation
+  GET    /providers/{nID}/{pID}/FactDataDifference
+  GET    /providers/{nID}/{pID}/MasterData
+  GET    /providers/{nID}/{pID}/AuditData
+  GET    /providers/{nID}/{pID}/{DimensionName}Master
+  GET    /providers/{nID}/{pID}/{DimensionName}MasterWithHierarchy
+  GET    /providers/{nID}/{pID}/CurrencyTable
+  GET    /providers/{nID}/{pID}/ConversionRates
+  GET    /providers/{nID}/{pID}/PublicDimensionData
+  GET    /providers/{nID}/{pID}/FactData?deltaid={subscriptionID}
+  GET    /providers/{nID}/{pID}/FactData?externalid={externalID}
+  GET    /providers/{nID}/{pID}/{limiter}___Distinct
+  GET    /providers/sac_unit_conversion/StandardUnitConversion/ConversionRates
+  GET    /providers/sac_unit_conversion/T006/ConversionRates
+  GET    /providers/sac_unit_conversion/T006A/UnitDescriptions
+
+DATA IMPORT (/api/v1/dataimport):
+  GET    /models
+  GET    /models/{modelID}
+  GET    /models/{modelID}/metadata
+  POST   /models/{modelID}
+  POST   /models/{modelID}/{importType}
+  GET    /publicDimensions
+  GET    /publicDimensions/{publicDimensionID}
+  GET    /publicDimensions/{publicDimensionID}/metadata
+  POST   /publicDimensions/{publicDimensionID}/{importType}
+  GET    /currencyConversions
+  GET    /currencyConversions/{currencyConversionID}
+  GET    /currencyConversions/{currencyConversionID}/metadata
+  POST   /currencyConversions/{currencyConversionID}
+  POST   /currencyConversions/{currencyConversionID}/{importType}
+  GET    /unitConversions
+  GET    /unitConversions/{unitConversionID}
+  GET    /unitConversions/{unitConversionID}/metadata
+  POST   /unitConversions/{unitConversionID}/{importType}
+  GET    /jobs
+  POST   /jobs/{jobID}
+  POST   /jobs/{jobID}/validate
+  POST   /jobs/{jobID}/run
+  GET    /jobs/{jobID}/status
+  GET    /jobs/{jobID}/invalidRows
+  DELETE /jobs/{jobID}
+  POST   /import/{modelID}
+  POST   /import/{modelID}/{importType}
+
+MULTI ACTIONS:
+  POST   /api/v1/multiActions/{multiActionID}/executions
+  GET    /api/v1/multiActions/{multiActionID}/executions/{executionID}
+
+CALENDAR:
+  GET    /api/v1/calendar/events/{eventId}
+  PATCH  /api/v1/calendar/events/{eventId}
+  POST   /api/v1/calendar/events
+
+CONTENT TRANSPORT:
+  POST   /api/v1/content/jobs
+  GET    /api/v1/content/jobs/<JobID>
+  GET    /api/v1/content/jobs/<JobID>/downloadPackage
+  POST   /api/v1/content/jobs/<JobID>/uploadPackage
+  DELETE /api/v1/content/<itemID>
+  GET    /api/v1/content/<itemID>/package/<packageVersion>
+  DELETE /api/v1/content/<itemID>/package/<packageVersion>
+  PUT    /api/v1/content/<itemID>/<targetID>
+  GET    /api/v1/content/<itemID>/<waveItemID>
+  GET    /api/v1/content/permissions/<itemID>
+  GET    /api/v1/content/public/<itemID>/<waveItemID>
+  GET    /api/v1/content/public/<parentItemID>
+  GET    /api/v1/content/public/permissions/<itemID>
+
+SCIM v1:
+  GET/POST         /api/v1/scim/Users
+  GET/PUT/PATCH/DEL /api/v1/scim/Users/<ID>
+  POST             /api/v1/scim/Users/.search
+  GET/POST         /api/v1/scim/Groups
+  GET/PUT/PATCH/DEL /api/v1/scim/Groups/<Team_ID>
+
+SCIM v2:
+  POST             /api/v1/scim2/Bulk
+  GET/POST         /api/v1/scim2/Users
+  GET/PUT/PATCH/DEL /api/v1/scim2/Users/<UUID>
+  POST             /api/v1/scim2/Users/.search
+  GET/POST         /api/v1/scim2/Groups
+  GET/PUT/PATCH/DEL /api/v1/scim2/Groups/<UUID>
+  POST             /api/v1/scim2/Groups/.search
+  GET              /api/v1/scim2/ServiceProviderConfig
+  GET              /api/v1/scim2/Schemas
+  GET              /api/v1/scim2/ResourceTypes
+  GET              /api/v1/scim2/ResourceTypes/<Type>
+
+SCIM v3:
+  GET/POST         /api/v1/scim3/Groups
+  GET/PUT/PATCH/DEL /api/v1/scim3/Groups/<UUID>
+  POST             /api/v1/scim3/Groups/.search
+
+MONITORING:
+  GET    /api/v1/audit/activities/exportActivities
+  GET    /api/v1/monitoring/<Model_ID>
+
+SCHEDULE PUBLICATION:
+  GET    /api/v1/ps/schedules/template
+  POST   /api/v1/ps/schedules
+  PATCH  /api/v1/ps/schedules/{scheduleId}
+  DELETE /api/v1/ps/schedules/{scheduleId}
+  POST   /api/v1/ps/oem/token
+  POST   /api/v1/ps/oem/gatewaytoken
+  POST   /api/v1/ps/schedules/deliverystatus
+  POST   /api/v1/ps/schedules/schedulestatus
+
+TRANSLATION:
+  GET    /api/v1/ts/artifacts/metadata
+  GET    /api/v1/ts/artifacts/{id}/metadata
+  GET    /api/v1/ts/artifacts/{id}/source/xliff
+  POST   /api/v1/ts/artifacts/source/xliff
+  PATCH  /api/v1/ts/artifacts/{id}/translated
+
+CSRF TOKEN:
+  GET    /api/v1/csrf    (with x-csrf-token: Fetch header)
+
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
