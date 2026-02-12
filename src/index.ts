@@ -11,6 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerTools } from "./tools/index.js";
 import { registerResources } from "./resources/index.js";
+import { registerPrompts } from "./prompts/index.js";
 
 // ── Server metadata ────────────────────────────────────────────────
 const SERVER_NAME = "sac-mcp-server";
@@ -26,8 +27,12 @@ async function main(): Promise<void> {
   // 2. Register tool handlers  (src/tools/index.ts)
   registerTools(server);
 
+
   // 3. Register resource handlers  (src/resources/index.ts)
   registerResources(server);
+
+  // 4. Register prompt templates (src/prompts/index.ts)
+  registerPrompts(server);
 
   // 4. Connect via stdio transport (the standard for local MCP servers)
   const transport = new StdioServerTransport();
