@@ -7,7 +7,7 @@
     "sac-mcp-server": "./build/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node build/index.js",
     "dev": "tsc --watch",
     "setup": "node setup.js"

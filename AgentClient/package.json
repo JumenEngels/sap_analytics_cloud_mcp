@@ -4,7 +4,8 @@
   "description": "Standalone micro-agent for SAP Analytics Cloud via MCP",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc && node setup-client.js",
+    "setup": "node setup-client.js",
     "start": "node build/main.js"
   },
   "dependencies": {

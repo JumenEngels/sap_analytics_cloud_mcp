@@ -8,6 +8,7 @@
 
 import * as readline from "node:readline";
 import { resolve, dirname } from "node:path";
+import * as fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { McpBridge } from "./mcp-bridge.js";
 import { createProvider, type LlmProvider, type ToolCallResult, type ProviderConfig } from "./providers/index.js";
@@ -91,10 +92,85 @@ function isWriteOp(args: Record<string, unknown>): boolean {
   return args.allowalteration === true;
 }
 
+
+// ── Config Loading ───────────────────────────────────────────────
+
+interface AgentConfig {
+  defaultProvider?: string;
+  sac?: {
+    SAC_BASE_URL?: string;
+    SAC_TOKEN_URL?: string;
+    SAC_CLIENT_ID?: string;
+    SAC_CLIENT_SECRET?: string;
+  };
+  aicore?: {
+    AICORE_CLIENT_ID?: string;
+    AICORE_CLIENT_SECRET?: string;
+    AICORE_AUTH_URL?: string;
+    AICORE_BASE_URL?: string;
+    AICORE_RESOURCE_GROUP?: string;
+  };
+  anthropic?: { apiKey?: string };
+  openai?: { apiKey?: string };
+  gemini?: { apiKey?: string };
+}
+
+function loadConfig(): AgentConfig {
+  try {
+    const configPath = resolve(__dirname, "../mcp_agentclient.json");
+    console.log(`Loading config from ${configPath}`);
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, "utf-8");
+      return JSON.parse(content) as AgentConfig;
+    }
+  } catch (e) {
+    // ignore error, file might not exist
+  }
+  return {};
+}
+
 // ── Main ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const providerName = resolveProvider();
+  const agentConfig = loadConfig();
+
+  // 1. Resolve Provider
+  const providerName = (process.env.LLM_PROVIDER ?? agentConfig.defaultProvider ?? "anthropic") as ProviderName;
+  if (!VALID_PROVIDERS.includes(providerName)) {
+    console.error(`Error: Invalid provider "${providerName}". Must be one of: ${VALID_PROVIDERS.join(", ")}`);
+    process.exit(1);
+  }
+
+  // 2. Hydrate Env Vars from Config (if not already set)
+  if (agentConfig.sac) {
+    if (!process.env.SAC_BASE_URL && agentConfig.sac.SAC_BASE_URL) process.env.SAC_BASE_URL = agentConfig.sac.SAC_BASE_URL;
+    if (!process.env.SAC_TOKEN_URL && agentConfig.sac.SAC_TOKEN_URL) process.env.SAC_TOKEN_URL = agentConfig.sac.SAC_TOKEN_URL;
+    if (!process.env.SAC_CLIENT_ID && agentConfig.sac.SAC_CLIENT_ID) process.env.SAC_CLIENT_ID = agentConfig.sac.SAC_CLIENT_ID;
+    if (!process.env.SAC_CLIENT_SECRET && agentConfig.sac.SAC_CLIENT_SECRET) process.env.SAC_CLIENT_SECRET = agentConfig.sac.SAC_CLIENT_SECRET;
+  }
+
+  if (providerName === "genaicore" && agentConfig.aicore) {
+    if (!process.env.AICORE_CLIENT_ID && agentConfig.aicore.AICORE_CLIENT_ID) process.env.AICORE_CLIENT_ID = agentConfig.aicore.AICORE_CLIENT_ID;
+    if (!process.env.AICORE_CLIENT_SECRET && agentConfig.aicore.AICORE_CLIENT_SECRET) process.env.AICORE_CLIENT_SECRET = agentConfig.aicore.AICORE_CLIENT_SECRET;
+    if (!process.env.AICORE_AUTH_URL && agentConfig.aicore.AICORE_AUTH_URL) process.env.AICORE_AUTH_URL = agentConfig.aicore.AICORE_AUTH_URL;
+    if (!process.env.AICORE_BASE_URL && agentConfig.aicore.AICORE_BASE_URL) process.env.AICORE_BASE_URL = agentConfig.aicore.AICORE_BASE_URL;
+    if (!process.env.AICORE_RESOURCE_GROUP && agentConfig.aicore.AICORE_RESOURCE_GROUP) process.env.AICORE_RESOURCE_GROUP = agentConfig.aicore.AICORE_RESOURCE_GROUP;
+  }
+  if (providerName === "anthropic" && agentConfig.anthropic?.apiKey && !process.env.ANTHROPIC_API_KEY) {
+    process.env.ANTHROPIC_API_KEY = agentConfig.anthropic.apiKey;
+  }
+  if (providerName === "openai" && agentConfig.openai?.apiKey && !process.env.OPENAI_API_KEY) {
+    process.env.OPENAI_API_KEY = agentConfig.openai.apiKey;
+  }
+  if (providerName === "gemini" && agentConfig.gemini?.apiKey && !process.env.GOOGLE_API_KEY) {
+    process.env.GOOGLE_API_KEY = agentConfig.gemini.apiKey;
+  }
+
+  // 3. Resolve Keys & Model
+  // We can pass the provderName directly since we validated it above, skipping `resolveProvider()` function which duplicated logic.
+  // Actually, let's just update process.env.LLM_PROVIDER so `resolveProvider` works if we seek to reuse it, 
+  // but we already did the logic. Let's just use our resolved `providerName`.
+
   const apiKey = resolveApiKey(providerName);
   const model = process.env.LLM_MODEL ?? DEFAULT_MODELS[providerName];
 
