@@ -8,6 +8,7 @@ import type { LlmProvider, ProviderConfig } from "./types.js";
 import { AnthropicProvider } from "./anthropic.js";
 import { OpenAIProvider } from "./openai.js";
 import { GeminiProvider } from "./gemini.js";
+import { SAPAICoreProvider } from "./genaicore.js";
 
 export function createProvider(config: ProviderConfig): LlmProvider {
   switch (config.provider) {
@@ -17,7 +18,9 @@ export function createProvider(config: ProviderConfig): LlmProvider {
       return new OpenAIProvider(config);
     case "gemini":
       return new GeminiProvider(config);
+    case "genaicore":
+      return new SAPAICoreProvider(config);
     default:
-      throw new Error(`Unknown LLM provider: ${config.provider as string}`);
+      throw new Error(`Unknown LLM provider: ${config.provider}`);
   }
 }

@@ -14,13 +14,14 @@ import { createProvider, type LlmProvider, type ToolCallResult, type ProviderCon
 
 // ── Config ───────────────────────────────────────────────────────
 
-const VALID_PROVIDERS = ["anthropic", "openai", "gemini"] as const;
+const VALID_PROVIDERS = ["anthropic", "openai", "gemini", "genaicore"] as const;
 type ProviderName = (typeof VALID_PROVIDERS)[number];
 
 const DEFAULT_MODELS: Record<ProviderName, string> = {
   anthropic: "claude-sonnet-4-5-20250929",
   openai: "gpt-4o",
   gemini: "gemini-2.0-flash",
+  genaicore: "gpt-4o",
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,12 +55,13 @@ function resolveApiKey(provider: ProviderName): string {
     process.env.LLM_API_KEY ??
     (provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : undefined) ??
     (provider === "openai" ? process.env.OPENAI_API_KEY : undefined) ??
-    (provider === "gemini" ? process.env.GOOGLE_API_KEY : undefined);
+    (provider === "gemini" ? process.env.GOOGLE_API_KEY : undefined) ??
+    (provider === "genaicore" ? "managed-internally" : undefined);
 
   if (!key) {
     const hint =
       provider === "anthropic" ? "ANTHROPIC_API_KEY" :
-      provider === "openai" ? "OPENAI_API_KEY" : "GOOGLE_API_KEY";
+        provider === "openai" ? "OPENAI_API_KEY" : "GOOGLE_API_KEY";
     console.error(`Error: Set LLM_API_KEY or ${hint} for the ${provider} provider.`);
     process.exit(1);
   }

@@ -56,6 +56,10 @@ The server provides pre-defined prompts to guide users through common workflows:
 
 Use `list_prompts` to see the full list and `get_prompt` to use them.
 
+## Agent Client
+
+The project includes an **Agent Client** (located in `AgentClient/`). This is a microagent to test the MCP Server if the user wants to test it as a standalone tool and not connect it to a separate agent. It supports interactive chat and tool execution using various LLMs (Gemini, Claude, OpenAI, and SAP AI Core).
+
 ## SAC Tenant Setup
 
 

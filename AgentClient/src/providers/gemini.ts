@@ -21,12 +21,12 @@ export class GeminiProvider implements LlmProvider {
     const genAI = new GoogleGenerativeAI(config.apiKey);
 
     // Convert MCP tools to Gemini function declarations.
-    // The Gemini REST API accepts JSON Schema for parameters;
-    // cast through unknown to satisfy the SDK's stricter types.
+    // The Gemini REST API accepts a subset of JSON Schema; we must strip
+    // fields that cause 400 errors (e.g. $schema, additionalProperties).
     const functionDeclarations = config.tools.map((t) => ({
       name: t.name,
       description: t.description,
-      parameters: t.inputSchema as unknown as Record<string, unknown>,
+      parameters: cleanSchema(t.inputSchema),
     }));
 
     const model = genAI.getGenerativeModel({
@@ -77,4 +77,41 @@ export class GeminiProvider implements LlmProvider {
     }
     return { done: true, text, toolCalls: [] };
   }
+}
+
+function cleanSchema(schema: any): any {
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+  if (Array.isArray(schema)) {
+    return schema.map(cleanSchema);
+  }
+
+  const result = { ...schema };
+
+  // Remove known problematic fields.
+  delete result.$schema;
+  delete result.additionalProperties;
+  delete result.propertyNames;
+
+  // Recurse into common nested structures
+  if (result.properties) {
+    const newProps: Record<string, unknown> = {};
+    for (const key in result.properties) {
+      newProps[key] = cleanSchema(result.properties[key]);
+    }
+    result.properties = newProps;
+  }
+  if (result.items) {
+    result.items = cleanSchema(result.items);
+  }
+
+  // Recursively clean 'allOf', 'anyOf', 'oneOf' if present
+  for (const k of ['allOf', 'anyOf', 'oneOf']) {
+    if (Array.isArray(result[k])) {
+      result[k] = result[k].map(cleanSchema);
+    }
+  }
+
+  return result;
 }

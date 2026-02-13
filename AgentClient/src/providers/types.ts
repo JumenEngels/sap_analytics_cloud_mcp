@@ -47,9 +47,10 @@ export interface LlmProvider {
   continueTurn(results: ToolCallResult[]): Promise<LlmResponse>;
 }
 
+
 /** Config passed to the provider factory. */
 export interface ProviderConfig {
-  provider: "anthropic" | "openai" | "gemini";
+  provider: "anthropic" | "openai" | "gemini" | "genaicore";
   apiKey: string;
   model: string;
   systemPrompt: string;

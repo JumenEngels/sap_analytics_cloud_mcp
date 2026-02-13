@@ -14,14 +14,30 @@ export function registerContentTools(server: McpServer): void {
     "List stories accessible to the authenticated user. Optionally include model metadata.",
     {
       includeModels: z.boolean().optional().describe("Include model metadata (maps to ?include=models)"),
+      $top: z.number().optional().default(20).describe("Max number of stories to return (default: 20)"),
+      $skip: z.number().optional().describe("Number of stories to skip"),
     },
-    async ({ includeModels }) => {
+    async ({ includeModels, $top = 20, $skip = 0 }) => {
       try {
         const cfg = getConfig();
-        const path = includeModels
-          ? "/api/v1/stories?include=models"
-          : "/api/v1/stories";
+        const params = new URLSearchParams();
+
+        if (includeModels) params.append("include", "models");
+
+        // Try to push pagination to server
+        params.append("limit", $top.toString());
+        params.append("$top", $top.toString());
+        if ($skip) params.append("$skip", $skip.toString());
+
+        const path = `/api/v1/stories?${params.toString()}`;
         const result = await sacGet(cfg, path);
+
+        // Safety: If result is an array, slice it to respect $top
+        // This protects against the case where the API ignores the pagination params
+        if (Array.isArray(result)) {
+          return toolSuccess(result.slice(0, $top));
+        }
+
         return toolSuccess(result);
       } catch (err) {
         return toolError(err);
@@ -122,7 +138,7 @@ export function registerContentTools(server: McpServer): void {
     "sac_resources_list",
     "List resources (content objects) with optional OData query parameters.",
     {
-      $top: z.number().optional().describe("Max number of results"),
+      $top: z.number().optional().default(20).describe("Max number of results (default: 20)"),
       $skip: z.number().optional().describe("Number of results to skip"),
       $filter: z.string().optional().describe("OData filter expression"),
       $orderby: z.string().optional().describe("OData orderby expression"),
@@ -131,8 +147,24 @@ export function registerContentTools(server: McpServer): void {
     async (args) => {
       try {
         const cfg = getConfig();
-        const qs = buildODataQuery(args as Record<string, string | number | boolean | undefined>);
+        const top = args.$top ?? 20;
+        // Ensure $top is passed to OData
+        const queryArgs = { ...args, $top: top };
+        const qs = buildODataQuery(queryArgs as Record<string, string | number | boolean | undefined>);
         const result = await sacGet(cfg, `/api/v1/Resources${qs}`);
+
+        // Safety: Manual slicing if array
+        if (Array.isArray(result) && result.length > top) {
+          return toolSuccess(result.slice(0, top));
+        }
+        // OData often returns { value: [...] } wrapper
+        if (result && typeof result === 'object' && 'value' in result && Array.isArray((result as any).value)) {
+          const val = (result as any).value;
+          if (val.length > top) {
+            return toolSuccess({ ...result, value: val.slice(0, top) });
+          }
+        }
+
         return toolSuccess(result);
       } catch (err) {
         return toolError(err);
@@ -163,7 +195,7 @@ export function registerContentTools(server: McpServer): void {
     "sac_filerepository_list",
     "List file repository resources with optional OData query parameters.",
     {
-      $top: z.number().optional().describe("Max number of results"),
+      $top: z.number().optional().default(20).describe("Max number of results (default: 20)"),
       $skip: z.number().optional().describe("Number of results to skip"),
       $filter: z.string().optional().describe("OData filter expression"),
       $orderby: z.string().optional().describe("OData orderby expression"),
@@ -172,8 +204,21 @@ export function registerContentTools(server: McpServer): void {
     async (args) => {
       try {
         const cfg = getConfig();
-        const qs = buildODataQuery(args as Record<string, string | number | boolean | undefined>);
+        const top = args.$top ?? 20;
+        const queryArgs = { ...args, $top: top };
+        const qs = buildODataQuery(queryArgs as Record<string, string | number | boolean | undefined>);
         const result = await sacGet(cfg, `/api/v1/filerepository/Resources${qs}`);
+
+        // Safety: Manual slicing if array or OData value
+        if (Array.isArray(result) && result.length > top) {
+          return toolSuccess(result.slice(0, top));
+        }
+        if (result && typeof result === 'object' && 'value' in result && Array.isArray((result as any).value)) {
+          const val = (result as any).value;
+          if (val.length > top) {
+            return toolSuccess({ ...result, value: val.slice(0, top) });
+          }
+        }
         return toolSuccess(result);
       } catch (err) {
         return toolError(err);
@@ -186,7 +231,7 @@ export function registerContentTools(server: McpServer): void {
     "sac_repositories_list",
     "List repositories with optional OData query parameters.",
     {
-      $top: z.number().optional().describe("Max number of results"),
+      $top: z.number().optional().default(20).describe("Max number of results (default: 20)"),
       $skip: z.number().optional().describe("Number of results to skip"),
       $filter: z.string().optional().describe("OData filter expression"),
       $orderby: z.string().optional().describe("OData orderby expression"),
@@ -195,8 +240,21 @@ export function registerContentTools(server: McpServer): void {
     async (args) => {
       try {
         const cfg = getConfig();
-        const qs = buildODataQuery(args as Record<string, string | number | boolean | undefined>);
+        const top = args.$top ?? 20;
+        const queryArgs = { ...args, $top: top };
+        const qs = buildODataQuery(queryArgs as Record<string, string | number | boolean | undefined>);
         const result = await sacGet(cfg, `/api/v1/Repositories${qs}`);
+
+        // Safety: Manual slicing
+        if (Array.isArray(result) && result.length > top) {
+          return toolSuccess(result.slice(0, top));
+        }
+        if (result && typeof result === 'object' && 'value' in result && Array.isArray((result as any).value)) {
+          const val = (result as any).value;
+          if (val.length > top) {
+            return toolSuccess({ ...result, value: val.slice(0, top) });
+          }
+        }
         return toolSuccess(result);
       } catch (err) {
         return toolError(err);

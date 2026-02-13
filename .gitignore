@@ -3,3 +3,11 @@ build/
 .env
 mcp_config.json
 .DS_Store
+start_agent.ps1
+GENAICORE_ADAPTER
+
+# AgentClient
+AgentClient/build/
+AgentClient/node_modules/
+
+
