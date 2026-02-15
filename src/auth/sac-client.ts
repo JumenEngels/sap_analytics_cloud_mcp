@@ -181,11 +181,13 @@ async function fetchCsrfToken(cfg: SacClientConfig): Promise<string> {
   const csrfToken = res.headers.get("x-csrf-token");
   if (!csrfToken) {
     const text = await res.text();
+    console.error(`[SAC] CSRF fetch failed: ${text}`);
     throw new Error(
       `CSRF fetch failed (${res.status}): no x-csrf-token header. Body: ${text}`,
     );
   }
 
+  console.log(`[SAC] Acquired CSRF token. Session cookies: ${cookieJar.size}`);
   return csrfToken;
 }
 
@@ -206,8 +208,10 @@ async function getCsrf(cfg: SacClientConfig): Promise<string> {
 
 /** Invalidate the cached CSRF so the next write re-fetches. */
 export function invalidateCsrf(): void {
+  console.log("[SAC] Invalidating CSRF token and clearing session cookies");
   cachedCsrf = null;
   csrfExpiresAt = 0;
+  cookieJar.clear(); // Force fresh session
 }
 
 /** Reset all cached state (token, CSRF, cookies). */
@@ -249,13 +253,19 @@ async function baseHeaders(
 async function writeHeaders(
   cfg: SacClientConfig,
 ): Promise<Record<string, string>> {
-  const base = await baseHeaders(cfg);
+  // Must fetch CSRF first, because it might update the session cookies (in the jar).
   const csrfToken = await getCsrf(cfg);
-  return {
+  // Now get base headers, which include the latest cookies from the jar.
+  const base = await baseHeaders(cfg);
+  const headers = {
     ...base,
-    "x-csrf-token": csrfToken,
+    "X-Csrf-Token": csrfToken,
     "Content-Type": "application/json",
+    // Add Origin and X-Requested-With to satisfy stricter CORS/CSRF checks
+    "Origin": new URL(cfg.baseUrl).origin,
+    "X-Requested-With": "XMLHttpRequest",
   };
+  return headers;
 }
 
 // ── Public HTTP helpers ────────────────────────────────────────────
