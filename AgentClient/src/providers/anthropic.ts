@@ -58,6 +58,8 @@ export class AnthropicProvider implements LlmProvider {
 
     this.messages.push({ role: "assistant", content: response.content });
 
+    const usage = { totalTokens: response.usage.input_tokens + response.usage.output_tokens };
+
     if (response.stop_reason === "tool_use") {
       const toolCalls = response.content
         .filter((b): b is ToolUseBlock => b.type === "tool_use")
@@ -66,13 +68,13 @@ export class AnthropicProvider implements LlmProvider {
           name: b.name,
           args: (b.input ?? {}) as Record<string, unknown>,
         }));
-      return { done: false, text: "", toolCalls };
+      return { done: false, text: "", toolCalls, usage };
     }
 
     const text = response.content
       .filter((b): b is TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n");
-    return { done: true, text, toolCalls: [] };
+    return { done: true, text, toolCalls: [], usage };
   }
 }

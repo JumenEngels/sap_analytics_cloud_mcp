@@ -62,15 +62,17 @@ export class OpenAIProvider implements LlmProvider {
       ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {}),
     } as OpenAI.Chat.Completions.ChatCompletionMessageParam);
 
+    const usage = { totalTokens: response.usage?.total_tokens };
+
     if (choice.finish_reason === "tool_calls" && message.tool_calls) {
       const toolCalls = message.tool_calls.map((tc) => ({
         id: tc.id,
         name: tc.function.name,
         args: JSON.parse(tc.function.arguments) as Record<string, unknown>,
       }));
-      return { done: false, text: "", toolCalls };
+      return { done: false, text: "", toolCalls, usage };
     }
 
-    return { done: true, text: message.content ?? "", toolCalls: [] };
+    return { done: true, text: message.content ?? "", toolCalls: [], usage };
   }
 }

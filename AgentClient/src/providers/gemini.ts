@@ -57,6 +57,8 @@ export class GeminiProvider implements LlmProvider {
   }
 
   private parseResponse(response: EnhancedGenerateContentResponse): LlmResponse {
+    const usage = { totalTokens: response.usageMetadata?.totalTokenCount };
+
     // Check for function calls first
     const fnCalls = response.functionCalls();
     if (fnCalls && fnCalls.length > 0) {
@@ -65,7 +67,7 @@ export class GeminiProvider implements LlmProvider {
         name: fc.name,
         args: (fc.args as Record<string, unknown>) ?? {},
       }));
-      return { done: false, text: "", toolCalls };
+      return { done: false, text: "", toolCalls, usage };
     }
 
     // Final text response
@@ -75,7 +77,7 @@ export class GeminiProvider implements LlmProvider {
     } catch {
       // text() can throw if response was blocked by safety
     }
-    return { done: true, text, toolCalls: [] };
+    return { done: true, text, toolCalls: [], usage };
   }
 }
 

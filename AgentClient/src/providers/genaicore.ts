@@ -120,6 +120,8 @@ export class SAPAICoreProvider implements LlmProvider {
         const choice = data.choices[0];
         const message = choice.message;
 
+        const usage = { totalTokens: data.usage?.total_tokens };
+
         // Check for tool calls
         if (message.tool_calls && message.tool_calls.length > 0) {
             const toolCalls = message.tool_calls.map((tc: any) => ({
@@ -135,6 +137,7 @@ export class SAPAICoreProvider implements LlmProvider {
                 done: false,
                 text: message.content || "", // Sometimes there's content with tool calls
                 toolCalls,
+                usage,
             };
         }
 
@@ -144,6 +147,7 @@ export class SAPAICoreProvider implements LlmProvider {
             done: true,
             text: message.content,
             toolCalls: [],
+            usage,
         };
     }
 

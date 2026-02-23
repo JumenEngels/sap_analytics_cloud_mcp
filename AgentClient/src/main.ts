@@ -227,7 +227,9 @@ async function handleTurn(
   bridge: McpBridge,
   rl: readline.Interface,
 ): Promise<void> {
+  let totalTokens = 0;
   let response = await provider.startTurn(userInput);
+  if (response.usage?.totalTokens) totalTokens += response.usage.totalTokens;
 
   // Agentic loop: keep going while the LLM wants to call tools
   while (!response.done) {
@@ -260,11 +262,17 @@ async function handleTurn(
     }
 
     response = await provider.continueTurn(results);
+    if (response.usage?.totalTokens) totalTokens += response.usage.totalTokens;
   }
 
   // Print final text
   if (response.text) {
     console.log("\n" + response.text + "\n");
+  }
+
+  if (totalTokens > 0) {
+    const formattedK = (totalTokens / 1000).toFixed(1).replace(".", ",");
+    console.log(`(token cost: ${formattedK}k)`);
   }
 }
 

@@ -32,6 +32,10 @@ export interface LlmResponse {
   text: string;
   /** Tool calls to execute (populated when !done). */
   toolCalls: ToolCall[];
+  /** Token usage statistics for this request (optional). */
+  usage?: {
+    totalTokens?: number;
+  };
 }
 
 /**

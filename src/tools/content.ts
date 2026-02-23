@@ -11,41 +11,20 @@ export function registerContentTools(server: McpServer): void {
   // ── GET /api/v1/stories ─────────────────────────────────────────
   server.tool(
     "sac_stories_list",
-    "List stories. Supports OData $filter, $orderby, $select, $expand, $top, $skip, $inlinecount, $format.",
+    `List stories via GET /api/v1/stories.
+WARNING: This endpoint does NOT support OData filtering. All query parameters ($filter, $top, $orderby, etc.) are silently ignored by the SAC API — it always returns every story on the tenant (3000+). The response does NOT include an 'owner' field.
+Response fields per story: storyId, name, createdBy, changedBy (and optionally model metadata).
+TO FILTER STORIES BY USER OR TYPE use sac_filerepository_list instead, which supports real OData $filter on createdBy, modifiedBy, resourceType, createdTime, etc.`,
     {
-      includeModels: z.boolean().optional().describe("Include model metadata"),
-      $top: z.number().optional().default(20).describe("Max results (default 20)"),
-      $skip: z.number().optional().describe("Skip N results"),
-      $filter: z.string().optional().describe("OData filter"),
-      $orderby: z.string().optional().describe("e.g. 'name desc'"),
-      $select: z.string().optional().describe("Comma-separated fields"),
-      $expand: z.string().optional().describe("Expand related entities"),
-      $inlinecount: z.enum(["allpages", "none"]).optional().describe("Include total count"),
-      $format: z.enum(["json", "xml"]).optional().describe("Response format"),
+      includeModels: z.boolean().optional().describe("Include model metadata for each story"),
     },
     async (args) => {
       try {
         const cfg = getConfig();
-        const top = args.$top ?? 20;
         const params = new URLSearchParams();
-
         if (args.includeModels) params.append("include", "models");
-        params.append("$top", top.toString());
-        if (args.$skip) params.append("$skip", args.$skip.toString());
-        if (args.$filter) params.append("$filter", args.$filter);
-        if (args.$orderby) params.append("$orderby", args.$orderby);
-        if (args.$select) params.append("$select", args.$select);
-        if (args.$expand) params.append("$expand", args.$expand);
-        if (args.$inlinecount) params.append("$inlinecount", args.$inlinecount);
-        if (args.$format) params.append("$format", args.$format);
-
-        const path = `/api/v1/stories?${params.toString()}`;
-        const result = await sacGet(cfg, path);
-
-        if (Array.isArray(result)) {
-          return toolSuccess(result.slice(0, top));
-        }
-
+        const qs = params.toString() ? `?${params.toString()}` : "";
+        const result = await sacGet(cfg, `/api/v1/stories${qs}`);
         return toolSuccess(result);
       } catch (err) {
         return toolError(err);
@@ -144,7 +123,7 @@ export function registerContentTools(server: McpServer): void {
   // ── GET /api/v1/Resources ───────────────────────────────────────
   server.tool(
     "sac_resources_list",
-    "List resources (stories/apps). Supports OData $filter, $orderby, $select, $expand, $top, $skip, $inlinecount, $format.",
+    "List resources via GET /api/v1/Resources (OData v2, returns XML/Atom format — not recommended for filtering). Use sac_filerepository_list for JSON responses with working OData $filter support.",
     {
       $top: z.number().optional().default(20).describe("Max results (default 20)"),
       $skip: z.number().optional().describe("Skip N results"),
@@ -201,34 +180,44 @@ export function registerContentTools(server: McpServer): void {
   // ── GET /api/v1/filerepository/Resources ────────────────────────
   server.tool(
     "sac_filerepository_list",
-    "List file repository resources. Supports OData query params.",
+    `List file repository resources via GET /api/v1/filerepository/Resources.
+This is the CORRECT tool for filtering stories/apps by user, type, or date. OData $filter, $top, $orderby, $select, $count all work.
+IMPORTANT — visibility scope:
+  By default (applyManagePrivilege=false), only content the service account has Read access to is returned (typically a small subset of tenant content).
+  Set applyManagePrivilege=true to get ALL tenant content (all users' private folders, public folders, workspaces) — requires the service account to have the "Manage" permission for Private Files and Public Files.
+  Always use applyManagePrivilege=true when the user wants to search/list across the whole tenant.
+Response fields: resourceId, objectId, name, description, resourceType, resourceSubtype, createdTime, createdBy, modifiedTime, modifiedBy, folderType, workspaceId, workspaceName, openURL, isMobile, isFeatured.
+Filterable fields: resourceType (values: STORY, APPLICATION, DATAACTION, PLANNINGSEQUENCE, MULTIACCOUNT, DIMENSION, ANALYTIC_MODEL), createdBy (exact username/ID), modifiedBy, createdTime, modifiedTime, name, folderType (PUBLIC, PRIVATE, SYSTEM, INPUT_SCHEDULE).
+Filter examples:
+  $filter=resourceType eq 'STORY' — all stories
+  $filter=resourceType eq 'STORY' and createdBy eq 'USERNAME' — stories by a specific user
+  $filter=resourceType eq 'STORY' and modifiedBy eq 'USERNAME' — stories last modified by user
+  $filter=resourceType eq 'STORY' and createdTime gt 2024-01-01T00:00:00Z — recently created`,
     {
+      applyManagePrivilege: z.boolean().optional().default(true).describe("true = return all tenant content (requires Manage permission); false = return only service account's own content. Default true for tenant-wide queries."),
       $top: z.number().optional().default(20).describe("Max results (default 20)"),
       $skip: z.number().optional().describe("Skip N results"),
-      $filter: z.string().optional().describe("OData filter"),
-      $orderby: z.string().optional().describe("e.g. 'name desc'"),
-      $select: z.string().optional().describe("Comma-separated fields"),
-      $expand: z.string().optional().describe("Expand related entities"),
-      $inlinecount: z.enum(["allpages", "none"]).optional().describe("Include total count"),
-      $format: z.enum(["json", "xml"]).optional().describe("Response format"),
+      $filter: z.string().optional().describe("OData filter expression. Filterable fields: resourceType, createdBy, modifiedBy, createdTime, modifiedTime, name, folderType"),
+      $orderby: z.string().optional().describe("e.g. 'createdTime desc' or 'name asc'"),
+      $select: z.string().optional().describe("Comma-separated fields to return"),
+      $count: z.boolean().optional().describe("Include total count in response (@odata.count)"),
     },
     async (args) => {
       try {
         const cfg = getConfig();
         const top = args.$top ?? 20;
-        const queryArgs = { ...args, $top: top };
-        const qs = buildODataQuery(queryArgs as Record<string, string | number | boolean | undefined>);
-        const result = await sacGet(cfg, `/api/v1/filerepository/Resources${qs}`);
-
-        if (Array.isArray(result) && result.length > top) {
-          return toolSuccess(result.slice(0, top));
-        }
-        if (result && typeof result === 'object' && 'value' in result && Array.isArray((result as any).value)) {
-          const val = (result as any).value;
-          if (val.length > top) {
-            return toolSuccess({ ...result, value: val.slice(0, top) });
-          }
-        }
+        // Build query string manually using encodeURIComponent (%20 for spaces)
+        // URLSearchParams encodes spaces as '+' which breaks OData $filter expressions
+        const parts: string[] = [];
+        const enc = encodeURIComponent;
+        parts.push(`applyManagePrivilege=${(args.applyManagePrivilege ?? true).toString()}`);
+        parts.push(`$top=${top}`);
+        if (args.$skip) parts.push(`$skip=${args.$skip}`);
+        if (args.$filter) parts.push(`$filter=${enc(args.$filter)}`);
+        if (args.$orderby) parts.push(`$orderby=${enc(args.$orderby)}`);
+        if (args.$select) parts.push(`$select=${enc(args.$select)}`);
+        if (args.$count) parts.push(`$count=true`);
+        const result = await sacGet(cfg, `/api/v1/filerepository/Resources?${parts.join("&")}`);
         return toolSuccess(result);
       } catch (err) {
         return toolError(err);
