@@ -1,4 +1,4 @@
-# SAP Analytics Cloud MCP Server
+# [SAP Analytics Cloud MCP Server](https://github.com/JumenEngels/sap_analytics_cloud_mcp)
 
 An [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server that exposes the SAP Analytics Cloud REST API as 90 tools consumable by any MCP-compatible client (Custom Agent, Claude Desktop, Claude Code, Cursor, etc.).
 
@@ -42,7 +42,7 @@ Plus a `ping` connectivity check tool (90 total), and **Prompt** support for gui
 ## Installation & Build
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/JumenEngels/sap_analytics_cloud_mcp
 cd sap_analytics_cloud_mcp
 npm install
 npm run build
