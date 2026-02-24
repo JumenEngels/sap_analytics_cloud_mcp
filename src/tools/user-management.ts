@@ -133,7 +133,7 @@ export function registerUserManagementTools(server: McpServer): void {
 
   server.tool(
     "sac_teams_list",
-    "List teams/groups (SCIM v2).",
+    "List user security groups via SCIM v2 (/api/v1/scim2/Groups). Returns groups used for role assignments and access control (e.g. T_SALES, T_HR). These are identity/authorization groups, not file storage folders.",
     {
       filter: z.string().optional().describe("SCIM filter"),
       startIndex: z.number().optional().describe("1-based start index"),

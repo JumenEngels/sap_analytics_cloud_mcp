@@ -192,7 +192,8 @@ Filter examples:
   $filter=resourceType eq 'STORY' — all stories
   $filter=resourceType eq 'STORY' and createdBy eq 'USERNAME' — stories by a specific user
   $filter=resourceType eq 'STORY' and modifiedBy eq 'USERNAME' — stories last modified by user
-  $filter=resourceType eq 'STORY' and createdTime gt 2024-01-01T00:00:00Z — recently created`,
+  $filter=resourceType eq 'STORY' and createdTime gt 2024-01-01T00:00:00Z — recently created
+WORKSPACE / TEAM FILES: To list all workspaces (team files spaces), filter by folderType eq 'INPUT_SCHEDULE' and workspaceId ne null. This returns exactly one entry per workspace with its workspaceId and workspaceName. Example: $filter=folderType eq 'INPUT_SCHEDULE' and workspaceId ne null with $select=workspaceId,workspaceName and $orderby=workspaceName asc.`,
     {
       applyManagePrivilege: z.boolean().optional().default(true).describe("true = return all tenant content (requires Manage permission); false = return only service account's own content. Default true for tenant-wide queries."),
       $top: z.number().optional().default(20).describe("Max results (default 20)"),
