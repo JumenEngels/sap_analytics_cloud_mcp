@@ -144,14 +144,20 @@ export function registerDataImportTools(server: McpServer): void {
 
   server.tool(
     "sac_import_list_jobs",
-    "List all import jobs.",
+    "List all import jobs. filter is an OData $filter on the job list.",
     {
       top: z.number().optional().describe("Max number of results"),
+      filter: z.string().optional().describe("OData filter, e.g. jobStatus eq 'FAILED'"),
     },
-    async ({ top }) => {
+    async ({ top, filter }) => {
       try {
         const cfg = getConfig();
-        const url = top ? `${BASE}/jobs?$top=${top}` : `${BASE}/jobs`;
+        // Pass the spec's $filter through.
+        const q = new URLSearchParams();
+        if (top) q.set("$top", String(top));
+        if (filter) q.set("$filter", filter);
+        const qs = q.toString().replace(/%24/g, "$").replace(/\+/g, "%20");
+        const url = qs ? `${BASE}/jobs?${qs}` : `${BASE}/jobs`;
         let result = await sacGet(cfg, url);
 
         if (top && Array.isArray(result)) {
