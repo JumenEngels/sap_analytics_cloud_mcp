@@ -187,7 +187,8 @@ async function fetchCsrfToken(cfg: SacClientConfig): Promise<string> {
     );
   }
 
-  console.log(`[SAC] Acquired CSRF token. Session cookies: ${cookieJar.size}`);
+  // stdout is the MCP channel, so logs go to stderr.
+  console.error(`[SAC] Acquired CSRF token. Session cookies: ${cookieJar.size}`);
   return csrfToken;
 }
 
@@ -208,7 +209,7 @@ async function getCsrf(cfg: SacClientConfig): Promise<string> {
 
 /** Invalidate the cached CSRF so the next write re-fetches. */
 export function invalidateCsrf(): void {
-  console.log("[SAC] Invalidating CSRF token and clearing session cookies");
+  console.error("[SAC] Invalidating CSRF token and clearing session cookies");
   cachedCsrf = null;
   csrfExpiresAt = 0;
   cookieJar.clear(); // Force fresh session
