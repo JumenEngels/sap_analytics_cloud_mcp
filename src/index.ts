@@ -12,6 +12,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerTools } from "./tools/index.js";
 import { registerResources } from "./resources/index.js";
 import { registerPrompts } from "./prompts/index.js";
+import { withODataKeyFix } from "./tools/_odata-key-fix.js";
 
 // ── Server metadata ────────────────────────────────────────────────
 const SERVER_NAME = "sac-mcp-server";
@@ -25,7 +26,7 @@ async function main(): Promise<void> {
   });
 
   // 2. Register tool handlers  (src/tools/index.ts)
-  registerTools(server);
+  registerTools(withODataKeyFix(server));
 
 
   // 3. Register resource handlers  (src/resources/index.ts)
